@@ -29,7 +29,7 @@ export default function AddCreativeButton({ batchId }: { batchId: string }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+        className="bg-bloom text-white text-sm px-4 py-2 rounded-lg hover:bg-bloom-dark transition-colors"
       >
         Add Creative
       </button>
@@ -45,7 +45,7 @@ export default function AddCreativeButton({ batchId }: { batchId: string }) {
                   value={concept}
                   onChange={(e) => setConcept(e.target.value)}
                   rows={3}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-bloom resize-none"
                   placeholder="Describe the creative concept..."
                   autoFocus
                 />
@@ -56,7 +56,7 @@ export default function AddCreativeButton({ batchId }: { batchId: string }) {
                   type="url"
                   value={briefLink}
                   onChange={(e) => setBriefLink(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-bloom"
                   placeholder="https://drive.google.com/..."
                 />
               </div>
@@ -68,7 +68,7 @@ export default function AddCreativeButton({ batchId }: { batchId: string }) {
               <button
                 onClick={handleCreate}
                 disabled={loading || !concept.trim()}
-                className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="bg-bloom text-white text-sm px-4 py-2 rounded-lg hover:bg-bloom-dark disabled:opacity-50"
               >
                 {loading ? "Adding..." : "Add Creative"}
               </button>

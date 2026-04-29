@@ -1,7 +1,8 @@
-﻿import type { Stage, Role } from "@/generated/prisma/client"
+import type { Stage, Role } from "@/generated/prisma/client"
 
 export const STAGES: Stage[] = [
   "IDEATION",
+  "READY",
   "AI_GENERATION",
   "AI_REVIEW",
   "EDITING",
@@ -12,7 +13,8 @@ export const STAGES: Stage[] = [
 ]
 
 export const STAGE_LABELS: Record<Stage, string> = {
-  IDEATION: "Ideation",
+  IDEATION: "Planning",
+  READY: "Ready",
   AI_GENERATION: "AI Generation",
   AI_REVIEW: "AI Review",
   EDITING: "Editing",
@@ -24,6 +26,7 @@ export const STAGE_LABELS: Record<Stage, string> = {
 
 export const STAGE_COLORS: Record<Stage, string> = {
   IDEATION: "bg-gray-100 text-gray-700 border-gray-200",
+  READY: "bg-blue-100 text-blue-700 border-blue-200",
   AI_GENERATION: "bg-purple-100 text-purple-700 border-purple-200",
   AI_REVIEW: "bg-yellow-100 text-yellow-700 border-yellow-200",
   EDITING: "bg-blue-100 text-blue-700 border-blue-200",
@@ -40,7 +43,7 @@ export function nextStage(stage: Stage): Stage | null {
 }
 
 export function canAdvance(stage: Stage, role: Role): boolean {
-  if (role === "CEO") return stage !== "COMPLETED"
+  if (role === "CEO") return stage === "IDEATION" || stage === "AI_REVIEW" || stage === "EDITOR_REVIEW"
   if (role === "AI_GENERATOR") return stage === "AI_GENERATION"
   if (role === "EDITOR") return stage === "EDITING"
   return false
@@ -48,7 +51,7 @@ export function canAdvance(stage: Stage, role: Role): boolean {
 
 export function canView(stage: Stage, role: Role): boolean {
   if (role === "CEO") return true
-  if (role === "AI_GENERATOR") return ["IDEATION", "AI_GENERATION", "AI_REVIEW"].includes(stage)
+  if (role === "AI_GENERATOR") return ["READY", "AI_GENERATION", "AI_REVIEW"].includes(stage)
   if (role === "EDITOR") return ["AI_REVIEW", "EDITING", "EDITOR_REVIEW"].includes(stage)
   return false
 }

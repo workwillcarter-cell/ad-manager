@@ -8,11 +8,11 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (session.user.role !== "CEO") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-  const { concept, briefLink, batchId } = await req.json()
-  if (!concept || !batchId) return NextResponse.json({ error: "concept and batchId required" }, { status: 400 })
+  const { concept, briefLink } = await req.json()
+  if (!concept?.trim()) return NextResponse.json({ error: "concept required" }, { status: 400 })
 
   const creative = await prisma.creative.create({
-    data: { concept, briefLink, batchId, createdById: session.user.id },
+    data: { concept: concept.trim(), briefLink: briefLink || null, createdById: session.user.id },
   })
 
   await prisma.stageHistory.create({

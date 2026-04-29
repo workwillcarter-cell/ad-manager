@@ -3,6 +3,15 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* BloomaCare brand */
+  --bloom: #43A047;
+  --bloom-dark: #2E7D32;
+  --bloom-darker: #1B5E20;
+  --bloom-leaf: #7CB342;
+  --bloom-soft: #E8F5E9;
+  --bloom-charcoal: #3F4A4A;
+  --bloom-cream: #FAFBF7;
 }
 
 @theme inline {
@@ -10,17 +19,16 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-bloom: var(--bloom);
+  --color-bloom-dark: var(--bloom-dark);
+  --color-bloom-darker: var(--bloom-darker);
+  --color-bloom-leaf: var(--bloom-leaf);
+  --color-bloom-soft: var(--bloom-soft);
+  --color-bloom-charcoal: var(--bloom-charcoal);
+  --color-bloom-cream: var(--bloom-cream);
 }
 
 body {
-  background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }

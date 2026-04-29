@@ -1,15 +1,43 @@
-﻿import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import CEOBoard from "@/components/CEOBoard"
 import { STAGE_LABELS, STAGES } from "@/lib/pipeline"
 import Link from "next/link"
 import type { Stage } from "@/generated/prisma/client"
-import CreateBatchButton from "@/components/CreateBatchButton"
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
   if (!session) return null
 
+  if (session.user.role === "CEO") {
+    const CREATIVE_SELECT = {
+      id: true, concept: true, briefLink: true, adNumber: true,
+      extraInfo: true, launchDate: true, result: true, learnings: true,
+      spend: true, roas: true, stage: true, ceoStatus: true,
+      editorDriveLink: true,
+    }
+
+    const batches = await prisma.batch.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        creatives: {
+          orderBy: { createdAt: "asc" },
+          select: CREATIVE_SELECT,
+        },
+      },
+    })
+
+    const unassigned = await prisma.creative.findMany({
+      where: { batchId: null },
+      orderBy: { createdAt: "asc" },
+      select: CREATIVE_SELECT,
+    })
+
+    return <CEOBoard batches={batches} unassigned={unassigned} />
+  }
+
+  // Non-CEO: batch grid
   const batches = await prisma.batch.findMany({
     include: { creatives: true, createdBy: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
@@ -19,26 +47,21 @@ export default async function DashboardPage() {
     <div className="max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Batches</h1>
-          <p className="text-sm text-gray-500 mt-0.5">All ad launch batches</p>
+          <h1 className="text-2xl font-bold text-white">Batches</h1>
+          <p className="text-sm text-bloom-soft/80 mt-0.5">All ad launch batches</p>
         </div>
-        {session.user.role === "CEO" && <CreateBatchButton />}
       </div>
 
       {batches.length === 0 ? (
-        <div className="text-center py-20 text-gray-400">
+        <div className="text-center py-20 text-bloom-soft/60">
           <p className="text-lg">No batches yet.</p>
-          {session.user.role === "CEO" && <p className="text-sm mt-1">Create your first batch to get started.</p>}
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {batches.map((batch) => {
             const total = batch.creatives.length
             const stageCounts = STAGES.reduce(
-              (acc, s) => {
-                acc[s] = batch.creatives.filter((c) => c.stage === s).length
-                return acc
-              },
+              (acc, s) => { acc[s] = batch.creatives.filter((c) => c.stage === s).length; return acc },
               {} as Record<Stage, number>,
             )
             const completed = stageCounts["COMPLETED"]
@@ -56,12 +79,11 @@ export default async function DashboardPage() {
                     {new Date(batch.createdAt).toLocaleDateString()}
                   </span>
                 </div>
-                {batch.description && <p className="text-sm text-gray-500 mb-3">{batch.description}</p>}
                 <div className="flex items-center gap-3 text-xs text-gray-500 mb-4">
                   <span>{total} creative{total !== 1 ? "s" : ""}</span>
-                  <span>Â·</span>
+                  <span>·</span>
                   <span>{launched} launched</span>
-                  <span>Â·</span>
+                  <span>·</span>
                   <span>{completed} completed</span>
                 </div>
                 <div className="flex gap-1 flex-wrap">

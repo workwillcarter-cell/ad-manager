@@ -123,7 +123,7 @@ export default function CreativeCard({
                       type="url"
                       value={fields.briefLink}
                       onChange={(e) => setFields((f) => ({ ...f, briefLink: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-bloom"
                       placeholder="https://drive.google.com/..."
                     />
                   </Field>
@@ -132,7 +132,7 @@ export default function CreativeCard({
                       type="url"
                       value={fields.finishedAdLink}
                       onChange={(e) => setFields((f) => ({ ...f, finishedAdLink: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-bloom"
                       placeholder="https://..."
                     />
                   </Field>
@@ -141,7 +141,7 @@ export default function CreativeCard({
                       value={fields.learnings}
                       onChange={(e) => setFields((f) => ({ ...f, learnings: e.target.value }))}
                       rows={3}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-bloom resize-none"
                       placeholder="What did we learn from this ad?"
                     />
                   </Field>
@@ -183,7 +183,7 @@ export default function CreativeCard({
                   <button
                     onClick={save}
                     disabled={saving}
-                    className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    className="bg-bloom text-white text-sm px-4 py-2 rounded-lg hover:bg-bloom-dark disabled:opacity-50"
                   >
                     {saving ? "Saving..." : "Save"}
                   </button>
@@ -197,7 +197,7 @@ export default function CreativeCard({
                     <button
                       onClick={advance}
                       disabled={advancing}
-                      className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                      className="bg-bloom text-white text-sm px-4 py-2 rounded-lg hover:bg-bloom-dark disabled:opacity-50"
                     >
                       {advancing ? "Moving..." : `Mark Done â†’ ${STAGE_LABELS[next]}`}
                     </button>

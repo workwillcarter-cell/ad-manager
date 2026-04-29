@@ -15,6 +15,7 @@ enum Role {
 
 enum Stage {
   IDEATION
+  READY
   AI_GENERATION
   AI_REVIEW
   EDITING
@@ -22,6 +23,13 @@ enum Stage {
   LAUNCHED
   PERFORMANCE_REVIEW
   COMPLETED
+}
+
+enum Result {
+  FAILED
+  WINNER
+  BIG_WINNER
+  SPENT_BUT_POOR_PERFORMANCE
 }
 
 model User {
@@ -40,7 +48,9 @@ model User {
 model Batch {
   id          String     @id @default(cuid())
   name        String
+  number      Int?
   description String?
+  sealed      Boolean    @default(false)
   createdAt   DateTime   @default(now())
   createdById String
   createdBy   User       @relation(fields: [createdById], references: [id])
@@ -49,15 +59,36 @@ model Batch {
 }
 
 model Creative {
-  id             String  @id @default(cuid())
+  id             String   @id @default(cuid())
   concept        String
   briefLink      String?
   finishedAdLink String?
   learnings      String?
-  stage          Stage   @default(IDEATION)
+  stage          Stage    @default(IDEATION)
+  adNumber       String?
+  launchDate     DateTime?
+  result         Result?
+  spend          Float?
+  roas           Float?
+  extraInfo      String?
+  ceoStatus        String?
+  aigStatus        String?
+  projectType      String?
+  aigNotes         String?
+  needsRevision    Boolean  @default(false)
+  revisionDetails  String?
+  revisionComplete Boolean  @default(false)
 
-  batchId     String
-  batch       Batch  @relation(fields: [batchId], references: [id])
+  editorStatus           String?
+  editorNotes            String?
+  editorNeedsRevision    Boolean  @default(false)
+  editorRevisionDetails  String?
+  editorRevisionComplete Boolean  @default(false)
+  editorDriveLink        String?
+  usedInAd               String?
+
+  batchId     String?
+  batch       Batch?  @relation(fields: [batchId], references: [id])
   createdById String
   createdBy   User   @relation(fields: [createdById], references: [id])
 

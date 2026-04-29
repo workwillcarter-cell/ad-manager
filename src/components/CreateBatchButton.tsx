@@ -29,7 +29,7 @@ export default function CreateBatchButton() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+        className="bg-bloom text-white text-sm px-4 py-2 rounded-lg hover:bg-bloom-dark transition-colors"
       >
         New Batch
       </button>
@@ -45,7 +45,7 @@ export default function CreateBatchButton() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-bloom"
                   placeholder="e.g. Batch 12 - May Launch"
                   autoFocus
                 />
@@ -56,7 +56,7 @@ export default function CreateBatchButton() {
                   type="text"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-bloom"
                   placeholder="Brief description..."
                 />
               </div>
@@ -68,7 +68,7 @@ export default function CreateBatchButton() {
               <button
                 onClick={handleCreate}
                 disabled={loading || !name.trim()}
-                className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="bg-bloom text-white text-sm px-4 py-2 rounded-lg hover:bg-bloom-dark disabled:opacity-50"
               >
                 {loading ? "Creating..." : "Create"}
               </button>
