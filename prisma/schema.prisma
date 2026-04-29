@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  CEO
+  AI_GENERATOR
+  EDITOR
+}
+
+enum Stage {
+  IDEATION
+  AI_GENERATION
+  AI_REVIEW
+  EDITING
+  EDITOR_REVIEW
+  LAUNCHED
+  PERFORMANCE_REVIEW
+  COMPLETED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(EDITOR)
+  createdAt DateTime @default(now())
+
+  batches   Batch[]
+  creatives Creative[]
+  history   StageHistory[]
+}
+
+model Batch {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime   @default(now())
+  createdById String
+  createdBy   User       @relation(fields: [createdById], references: [id])
+
+  creatives Creative[]
+}
+
+model Creative {
+  id             String  @id @default(cuid())
+  concept        String
+  briefLink      String?
+  finishedAdLink String?
+  learnings      String?
+  stage          Stage   @default(IDEATION)
+
+  batchId     String
+  batch       Batch  @relation(fields: [batchId], references: [id])
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  history StageHistory[]
+}
+
+model StageHistory {
+  id          String   @id @default(cuid())
+  creativeId  String
+  creative    Creative @relation(fields: [creativeId], references: [id])
+  fromStage   Stage?
+  toStage     Stage
+  changedById String
+  changedBy   User     @relation(fields: [changedById], references: [id])
+  note        String?
+  changedAt   DateTime @default(now())
+}
