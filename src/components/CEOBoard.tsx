@@ -206,17 +206,6 @@ export default function CEOBoard({ batches, unassigned }: { batches: Batch[]; un
                 </span>
               </td>
             </tr>
-            {planning.map((creative, i) => (
-              <CreativeRow
-                key={creative.id}
-                creative={creative}
-                index={i + 1}
-                rowIndex={i}
-                onUpdate={updateField}
-                onDelete={deleteCreative}
-                onNav={navigate}
-              />
-            ))}
             <tr>
               <td colSpan={COL_SPAN} className="px-3 py-2 border-b border-zinc-700">
                 {addingConcept ? (
@@ -250,6 +239,17 @@ export default function CEOBoard({ batches, unassigned }: { batches: Batch[]; un
                 )}
               </td>
             </tr>
+            {planning.map((creative, i) => (
+              <CreativeRow
+                key={creative.id}
+                creative={creative}
+                index={i + 1}
+                rowIndex={i}
+                onUpdate={updateField}
+                onDelete={deleteCreative}
+                onNav={navigate}
+              />
+            ))}
 
             {/* Batched ads — newest first */}
             {batches.map((batch) => {

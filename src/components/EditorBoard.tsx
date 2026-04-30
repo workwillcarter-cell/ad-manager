@@ -43,11 +43,12 @@ function newRevId() {
 }
 
 const EDITOR_COLUMNS = [
-  { id: "ASSIGNED",  label: "Assigned",  color: "bg-blue-50 border-blue-200",   badge: "bg-blue-100 text-blue-700" },
-  { id: "EDITED",    label: "Edited",    color: "bg-indigo-50 border-indigo-200", badge: "bg-indigo-100 text-indigo-700" },
-  { id: "REVISION",  label: "Revision",  color: "bg-red-50 border-red-200",     badge: "bg-red-100 text-red-700" },
-  { id: "COMPLETE",  label: "Complete",  color: "bg-green-50 border-green-200", badge: "bg-green-100 text-green-700" },
-  { id: "PAID",      label: "Paid",      color: "bg-gray-50 border-gray-200",   badge: "bg-gray-100 text-gray-600" },
+  { id: "ASSIGNED",          label: "Assigned",          color: "bg-blue-50 border-blue-200",     badge: "bg-blue-100 text-blue-700" },
+  { id: "EDITED",            label: "Edited",            color: "bg-indigo-50 border-indigo-200", badge: "bg-indigo-100 text-indigo-700" },
+  { id: "REVISION",          label: "Revision",          color: "bg-red-50 border-red-200",       badge: "bg-red-100 text-red-700" },
+  { id: "REVISION_COMPLETE", label: "Revision Complete", color: "bg-amber-50 border-amber-200",   badge: "bg-amber-100 text-amber-700" },
+  { id: "COMPLETE",          label: "Complete",          color: "bg-green-50 border-green-200",   badge: "bg-green-100 text-green-700" },
+  { id: "PAID",              label: "Paid",              color: "bg-gray-50 border-gray-200",     badge: "bg-gray-100 text-gray-600" },
 ]
 
 export default function EditorBoard({ cards: initialCards, userRole }: { cards: Card[]; userRole: Role }) {
@@ -85,6 +86,7 @@ export default function EditorBoard({ cards: initialCards, userRole }: { cards: 
     const card = cards.find((c) => c.id === id)
     if (!card || card.editorStatus === colId) return
     if (colId === "COMPLETE") {
+      if (userRole !== "CEO") return
       setConfirmMove({ cardId: id, colId })
       return
     }
@@ -469,7 +471,7 @@ function CardModal({ card, userRole, onClose, onUpdate, onMarkComplete }: {
                 ← {prevCol.label}
               </button>
             )}
-            {nextCol && (
+            {nextCol && (nextCol.id !== "COMPLETE" || userRole === "CEO") && (
               <button
                 onClick={() => {
                   if (nextCol.id === "COMPLETE") {
