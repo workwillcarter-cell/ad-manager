@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { exchangeDropboxCode } from "@/lib/dropbox"
+import { getCanonicalAppUrl } from "@/lib/app-url"
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -9,24 +10,25 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "CEO only" }, { status: 403 })
   }
 
+  const appUrl = getCanonicalAppUrl()
   const url = new URL(req.url)
   const code = url.searchParams.get("code")
   const error = url.searchParams.get("error")
 
   if (error) {
-    return NextResponse.redirect(new URL(`/setup?error=${encodeURIComponent(error)}`, req.url))
+    return NextResponse.redirect(`${appUrl}/dashboard/setup?error=${encodeURIComponent(error)}`)
   }
   if (!code) {
-    return NextResponse.redirect(new URL("/setup?error=missing_code", req.url))
+    return NextResponse.redirect(`${appUrl}/dashboard/setup?error=missing_code`)
   }
 
-  const redirectUri = new URL("/api/auth/dropbox/callback", req.url).toString()
+  const redirectUri = `${appUrl}/api/auth/dropbox/callback`
 
   try {
     await exchangeDropboxCode(code, redirectUri)
-    return NextResponse.redirect(new URL("/setup?connected=dropbox", req.url))
+    return NextResponse.redirect(`${appUrl}/dashboard/setup?connected=dropbox`)
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error"
-    return NextResponse.redirect(new URL(`/setup?error=${encodeURIComponent(message)}`, req.url))
+    return NextResponse.redirect(`${appUrl}/dashboard/setup?error=${encodeURIComponent(message)}`)
   }
 }

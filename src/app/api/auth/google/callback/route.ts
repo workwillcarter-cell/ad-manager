@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { exchangeDriveCode } from "@/lib/drive"
+import { getCanonicalAppUrl } from "@/lib/app-url"
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -9,24 +10,25 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "CEO only" }, { status: 403 })
   }
 
+  const appUrl = getCanonicalAppUrl()
   const url = new URL(req.url)
   const code = url.searchParams.get("code")
   const error = url.searchParams.get("error")
 
   if (error) {
-    return NextResponse.redirect(new URL(`/setup?error=${encodeURIComponent(error)}`, req.url))
+    return NextResponse.redirect(`${appUrl}/dashboard/setup?error=${encodeURIComponent(error)}`)
   }
   if (!code) {
-    return NextResponse.redirect(new URL("/setup?error=missing_code", req.url))
+    return NextResponse.redirect(`${appUrl}/dashboard/setup?error=missing_code`)
   }
 
-  const redirectUri = new URL("/api/auth/google/callback", req.url).toString()
+  const redirectUri = `${appUrl}/api/auth/google/callback`
 
   try {
     await exchangeDriveCode(code, redirectUri)
-    return NextResponse.redirect(new URL("/setup?connected=drive", req.url))
+    return NextResponse.redirect(`${appUrl}/dashboard/setup?connected=drive`)
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error"
-    return NextResponse.redirect(new URL(`/setup?error=${encodeURIComponent(message)}`, req.url))
+    return NextResponse.redirect(`${appUrl}/dashboard/setup?error=${encodeURIComponent(message)}`)
   }
 }
