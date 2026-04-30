@@ -66,6 +66,22 @@ const STYLE_COLORS: Record<string, string> = {
   "Shotgun/Random": "bg-amber-100 text-amber-700",
 }
 
+// Planning sort order: top → bottom = no-status, BRIEF_COMPLETE, MOVED_TO_AIG, MOVED_TO_EDITOR
+const PLANNING_STATUS_ORDER: Record<string, number> = {
+  BRIEF_COMPLETE:  1,
+  MOVED_TO_AIG:    2,
+  MOVED_TO_EDITOR: 3,
+}
+
+function sortPlanning<T extends { ceoStatus: string | null; projectType: string | null }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => {
+    const aOrder = a.ceoStatus ? (PLANNING_STATUS_ORDER[a.ceoStatus] ?? 99) : 0
+    const bOrder = b.ceoStatus ? (PLANNING_STATUS_ORDER[b.ceoStatus] ?? 99) : 0
+    if (aOrder !== bOrder) return aOrder - bOrder
+    return (a.projectType ?? "").localeCompare(b.projectType ?? "")
+  })
+}
+
 const RESULT_LABELS: Record<Result, string> = {
   FAILED: "Failed",
   WINNER: "Winner",
@@ -92,8 +108,11 @@ export default function CEOBoard({ batches, unassigned }: { batches: Batch[]; un
   const [saving, setSaving] = useState(false)
   const addInputRef = useRef<HTMLInputElement>(null)
 
-  // Flat ordered list of all rows (unassigned first, then batches newest→oldest)
-  const allRows = [...unassigned, ...batches.flatMap((b) => b.creatives)]
+  // Planning rows: sorted by ceoStatus (no-status → BRIEF_COMPLETE → MOVED_TO_AIG → MOVED_TO_EDITOR), then projectType
+  const planning = sortPlanning(unassigned)
+
+  // Flat ordered list of all rows (planning first, then batches newest→oldest)
+  const allRows = [...planning, ...batches.flatMap((b) => b.creatives)]
 
   function navigate(rowIndex: number, colIndex: number, dir: NavDir) {
     let r = rowIndex
@@ -183,11 +202,11 @@ export default function CEOBoard({ batches, unassigned }: { batches: Batch[]; un
               <td colSpan={COL_SPAN} className="bg-zinc-900 px-4 py-2 border-y border-zinc-700">
                 <span className="font-bold text-gray-100 text-sm">Planning</span>
                 <span className="ml-3 text-xs text-gray-400 font-normal">
-                  {unassigned.length} concept{unassigned.length !== 1 ? "s" : ""}
+                  {planning.length} concept{planning.length !== 1 ? "s" : ""}
                 </span>
               </td>
             </tr>
-            {unassigned.map((creative, i) => (
+            {planning.map((creative, i) => (
               <CreativeRow
                 key={creative.id}
                 creative={creative}
@@ -234,7 +253,7 @@ export default function CEOBoard({ batches, unassigned }: { batches: Batch[]; un
 
             {/* Batched ads — newest first */}
             {batches.map((batch) => {
-              const batchStartRow = unassigned.length + batches
+              const batchStartRow = planning.length + batches
                 .slice(0, batches.indexOf(batch))
                 .reduce((n, b) => n + b.creatives.length, 0)
               return (
@@ -314,7 +333,7 @@ function CreativeRow({
         <AdNumberCell cellId={`${rowIndex}-5`} value={creative.adNumber} driveLink={creative.editorDriveLink} onSave={(v) => onUpdate(creative.id, "adNumber", v)} onNav={nav(5)} />
       </td>
       <td className="px-1 py-1">
-        <EditableCell cellId={`${rowIndex}-6`} value={creative.extraInfo ?? ""} onSave={(v) => onUpdate(creative.id, "extraInfo", v || null)} placeholder="—" onNav={nav(6)} className="text-gray-300 text-xs" />
+        <EditableCell cellId={`${rowIndex}-6`} value={creative.extraInfo ?? ""} onSave={(v) => onUpdate(creative.id, "extraInfo", v || null)} placeholder="—" multiline onNav={nav(6)} className="text-gray-300 text-xs" />
       </td>
       <td className="px-1 py-1">
         <DateCell cellId={`${rowIndex}-7`} value={creative.launchDate} onSave={(v) => onUpdate(creative.id, "launchDate", v)} onNav={nav(7)} />
@@ -474,6 +493,29 @@ function CEOStatusCell({ value, onSave, cellId, onNav }: { value: string | null;
   )
 }
 
+const URL_PATTERN = /(https?:\/\/[^\s]+)/g
+
+function renderWithLinks(text: string): React.ReactNode[] {
+  const parts = text.split(URL_PATTERN)
+  return parts.map((part, i) => {
+    if (i % 2 === 1) {
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="text-blue-400 hover:text-blue-300 hover:underline break-all"
+        >
+          {part}
+        </a>
+      )
+    }
+    return part
+  })
+}
+
 function EditableCell({ value, onSave, placeholder = "—", multiline = false, className = "", cellId, onNav }: {
   value: string; onSave: (value: string) => void; placeholder?: string; multiline?: boolean; className?: string; cellId: string; onNav: (d: NavDir) => void
 }) {
@@ -485,21 +527,38 @@ function EditableCell({ value, onSave, placeholder = "—", multiline = false, c
   function cancel() { setEditing(false); setDraft(value) }
 
   if (editing) {
-    const sharedKeyDown = (e: React.KeyboardEvent) => {
-      if (e.key === "Tab") { e.preventDefault(); commit(); onNav(e.shiftKey ? "shift-tab" : "tab") }
-      if (e.key === "Escape") cancel()
-    }
     if (multiline) {
       return (
-        <textarea autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit}
-          onKeyDown={sharedKeyDown} rows={2}
-          className="w-full text-sm text-gray-900 border border-bloom rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-bloom/40 resize-none bg-white"
+        <textarea
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Tab") { e.preventDefault(); commit(); onNav(e.shiftKey ? "shift-tab" : "tab") }
+            else if (e.key === "Escape") cancel()
+            else if (e.key === "Enter" && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+              e.preventDefault(); commit(); onNav("enter")
+            }
+            // Ctrl/Cmd/Shift/Alt + Enter → default textarea behavior (newline)
+          }}
+          rows={3}
+          className="w-full text-sm text-gray-100 border border-bloom rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-bloom/40 resize-y bg-zinc-900 whitespace-pre-wrap"
         />
       )
     }
     return (
-      <input autoFocus type="text" value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit}
-        onKeyDown={(e) => { sharedKeyDown(e); if (!e.defaultPrevented && e.key === "Enter") { commit(); onNav("enter") } }}
+      <input
+        autoFocus
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Tab") { e.preventDefault(); commit(); onNav(e.shiftKey ? "shift-tab" : "tab") }
+          else if (e.key === "Escape") cancel()
+          else if (e.key === "Enter") { commit(); onNav("enter") }
+        }}
         className="w-full text-sm text-gray-100 border border-bloom rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-bloom/40 bg-zinc-900"
       />
     )
@@ -507,9 +566,9 @@ function EditableCell({ value, onSave, placeholder = "—", multiline = false, c
 
   return (
     <div data-cell={cellId} onClick={startEdit}
-      className={`min-h-[28px] px-2 py-1 rounded-lg cursor-text hover:bg-zinc-700/60 transition-all ${className} ${!value ? "text-gray-500 italic" : ""}`}
+      className={`min-h-[28px] px-2 py-1 rounded-lg cursor-text hover:bg-zinc-700/60 transition-all whitespace-pre-wrap break-words ${className} ${!value ? "text-gray-500 italic" : ""}`}
     >
-      {value || placeholder}
+      {value ? renderWithLinks(value) : placeholder}
     </div>
   )
 }
