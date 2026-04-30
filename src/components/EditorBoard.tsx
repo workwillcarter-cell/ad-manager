@@ -15,6 +15,11 @@ type Card = {
   editorRevisionDetails: string | null
   editorRevisionComplete: boolean
   usedInAd: string | null
+  adNumber: string | null
+  transferStatus: string | null
+  transferError: string | null
+  transferredAt: string | null
+  dropboxPath: string | null
   batchName: string | null
 }
 
@@ -450,6 +455,10 @@ function CardModal({ card, userRole, onClose, onUpdate, onMarkComplete }: {
               </div>
             )}
           </div>
+
+          {isCEO && card.editorStatus === "COMPLETE" && card.adNumber && (
+            <TransferSection card={card} />
+          )}
         </div>
 
         {/* Footer */}
@@ -502,6 +511,78 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div>
       <p className="text-xs font-medium text-gray-500 mb-1.5">{label}</p>
       {children}
+    </div>
+  )
+}
+
+function TransferSection({ card }: { card: Card }) {
+  const router = useRouter()
+  const [status, setStatus] = useState(card.transferStatus)
+  const [error, setError] = useState(card.transferError)
+  const [path, setPath] = useState(card.dropboxPath)
+
+  async function startTransfer() {
+    setStatus("IN_PROGRESS")
+    setError(null)
+    try {
+      const res = await fetch(`/api/creatives/${card.id}/transfer`, { method: "POST" })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setStatus("FAILED")
+        setError(json.error ?? `Transfer failed (${res.status})`)
+      } else {
+        setStatus("DONE")
+        setPath(`/Ads/${card.adNumber}`)
+      }
+    } catch (err) {
+      setStatus("FAILED")
+      setError(err instanceof Error ? err.message : "Network error")
+    }
+    router.refresh()
+  }
+
+  if (status === "DONE") {
+    return (
+      <div className="border border-green-200 bg-green-50 rounded-xl p-4">
+        <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">Dropbox transfer</p>
+        <p className="text-sm text-green-800">✓ Transferred to <span className="font-mono">{path ?? `/Ads/${card.adNumber}`}</span></p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+      <div>
+        <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Dropbox transfer</p>
+        <p className="text-xs text-gray-500 mt-1">
+          Downloads the 3 files from the editor&apos;s Drive folder and uploads them to{" "}
+          <span className="font-mono">/Ads/{card.adNumber}</span> as{" "}
+          <span className="font-mono">{card.adNumber}V1</span>,{" "}
+          <span className="font-mono">V2</span>, <span className="font-mono">V3</span>.
+        </p>
+      </div>
+
+      {status === "FAILED" && error && (
+        <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error}
+        </div>
+      )}
+
+      <button
+        onClick={startTransfer}
+        disabled={status === "IN_PROGRESS" || !card.editorDriveLink}
+        className="text-sm bg-bloom-dark text-white px-4 py-2 rounded-lg hover:bg-bloom transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {status === "IN_PROGRESS"
+          ? "Transferring... (this can take a few minutes)"
+          : status === "FAILED"
+          ? "Retry transfer"
+          : "Transfer to Dropbox"}
+      </button>
+
+      {!card.editorDriveLink && (
+        <p className="text-xs text-gray-400">No editor Drive link on this ad — can&apos;t transfer.</p>
+      )}
     </div>
   )
 }

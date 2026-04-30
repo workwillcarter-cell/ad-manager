@@ -87,6 +87,11 @@ model Creative {
   editorDriveLink        String?
   usedInAd               String?
 
+  transferStatus String?
+  transferError  String?
+  transferredAt  DateTime?
+  dropboxPath    String?
+
   batchId     String?
   batch       Batch?  @relation(fields: [batchId], references: [id])
   createdById String
@@ -108,4 +113,12 @@ model StageHistory {
   changedBy   User     @relation(fields: [changedById], references: [id])
   note        String?
   changedAt   DateTime @default(now())
+}
+
+model IntegrationToken {
+  provider     String   @id
+  refreshToken String
+  accessToken  String?
+  expiresAt    DateTime?
+  updatedAt    DateTime @updatedAt
 }

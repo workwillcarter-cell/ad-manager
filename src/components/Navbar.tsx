@@ -51,6 +51,7 @@ export default function Navbar({ user }: { user: { name?: string | null; role: R
         {(user.role === "CEO" || user.role === "AI_GENERATOR") && navLink("/dashboard/aig", "AIG Board")}
         {(user.role === "CEO" || user.role === "EDITOR") && navLink("/dashboard/editor", "Editor Board")}
         {user.role === "CEO" && navLink("/dashboard/team", "Team")}
+        {user.role === "CEO" && navLink("/dashboard/setup", "Setup")}
       </div>
       <div className="flex items-center gap-4">
         <div className="text-right">

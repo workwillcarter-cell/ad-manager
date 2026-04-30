@@ -16,12 +16,18 @@ export default async function EditorPage() {
       id: true, concept: true, briefLink: true,
       editorDriveLink: true, editorNotes: true, editorStatus: true,
       editorNeedsRevision: true, editorRevisionDetails: true, editorRevisionComplete: true,
-      usedInAd: true,
+      usedInAd: true, adNumber: true,
+      transferStatus: true, transferError: true, transferredAt: true, dropboxPath: true,
       batch: { select: { name: true } },
     },
   })
 
-  const flat = cards.map((c) => ({ ...c, batchName: c.batch?.name ?? null, batch: undefined }))
+  const flat = cards.map((c) => ({
+    ...c,
+    batchName: c.batch?.name ?? null,
+    batch: undefined,
+    transferredAt: c.transferredAt?.toISOString() ?? null,
+  }))
 
   return (
     <div className="-m-6 p-6 bg-zinc-900 min-h-[calc(100vh-88px)]">
