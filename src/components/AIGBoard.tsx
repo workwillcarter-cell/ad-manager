@@ -15,6 +15,7 @@ type Card = {
   needsRevision: boolean
   revisionDetails: string | null
   revisionComplete: boolean
+  updatedAt: string
   batchName: string | null
 }
 
@@ -58,6 +59,8 @@ const PROJECT_TYPE_COLORS: Record<string, string> = {
 
 const PROJECT_TYPES = ["Script Shotlist", "Perfect UGC", "Cartoon", "UGC", "Image", "Clip Refresh", "No Gen"]
 
+const NEWEST_FIRST_AIG = new Set(["ADDED_TO_EDITOR", "COMPLETE", "PAID"])
+
 export default function AIGBoard({ cards: initialCards, userRole }: { cards: Card[]; userRole: Role }) {
   const router = useRouter()
   const [cards, setCards] = useState(initialCards)
@@ -70,7 +73,11 @@ export default function AIGBoard({ cards: initialCards, userRole }: { cards: Car
   useEffect(() => { setCards(initialCards) }, [initialCards])
 
   const byStatus = AIG_COLUMNS.reduce((acc, col) => {
-    acc[col.id] = cards.filter((c) => c.aigStatus === col.id)
+    const filtered = cards.filter((c) => c.aigStatus === col.id)
+    if (NEWEST_FIRST_AIG.has(col.id)) {
+      filtered.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    }
+    acc[col.id] = filtered
     return acc
   }, {} as Record<string, Card[]>)
 

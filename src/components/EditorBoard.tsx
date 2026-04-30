@@ -20,6 +20,7 @@ type Card = {
   transferError: string | null
   transferredAt: string | null
   dropboxPath: string | null
+  updatedAt: string
   batchName: string | null
 }
 
@@ -43,13 +44,14 @@ function newRevId() {
 }
 
 const EDITOR_COLUMNS = [
-  { id: "ASSIGNED",          label: "Assigned",          color: "bg-blue-50 border-blue-200",     badge: "bg-blue-100 text-blue-700" },
-  { id: "EDITED",            label: "Edited",            color: "bg-indigo-50 border-indigo-200", badge: "bg-indigo-100 text-indigo-700" },
-  { id: "REVISION",          label: "Revision",          color: "bg-red-50 border-red-200",       badge: "bg-red-100 text-red-700" },
-  { id: "REVISION_COMPLETE", label: "Revision Complete", color: "bg-amber-50 border-amber-200",   badge: "bg-amber-100 text-amber-700" },
-  { id: "COMPLETE",          label: "Complete",          color: "bg-green-50 border-green-200",   badge: "bg-green-100 text-green-700" },
-  { id: "PAID",              label: "Paid",              color: "bg-gray-50 border-gray-200",     badge: "bg-gray-100 text-gray-600" },
+  { id: "ASSIGNED",  label: "Assigned",  color: "bg-blue-50 border-blue-200",     badge: "bg-blue-100 text-blue-700" },
+  { id: "EDITED",    label: "Edited",    color: "bg-indigo-50 border-indigo-200", badge: "bg-indigo-100 text-indigo-700" },
+  { id: "REVISION",  label: "Revision",  color: "bg-red-50 border-red-200",       badge: "bg-red-100 text-red-700" },
+  { id: "COMPLETE",  label: "Complete",  color: "bg-green-50 border-green-200",   badge: "bg-green-100 text-green-700" },
+  { id: "PAID",      label: "Paid",      color: "bg-gray-50 border-gray-200",     badge: "bg-gray-100 text-gray-600" },
 ]
+
+const NEWEST_FIRST_EDITOR = new Set(["COMPLETE", "PAID"])
 
 export default function EditorBoard({ cards: initialCards, userRole }: { cards: Card[]; userRole: Role }) {
   const router = useRouter()
@@ -63,7 +65,11 @@ export default function EditorBoard({ cards: initialCards, userRole }: { cards: 
   useEffect(() => { setCards(initialCards) }, [initialCards])
 
   const byStatus = EDITOR_COLUMNS.reduce((acc, col) => {
-    acc[col.id] = cards.filter((c) => c.editorStatus === col.id)
+    const filtered = cards.filter((c) => c.editorStatus === col.id)
+    if (NEWEST_FIRST_EDITOR.has(col.id)) {
+      filtered.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    }
+    acc[col.id] = filtered
     return acc
   }, {} as Record<string, Card[]>)
 

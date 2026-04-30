@@ -16,11 +16,17 @@ export default async function AIGPage() {
       id: true, concept: true, briefLink: true, finishedAdLink: true,
       projectType: true, aigNotes: true, aigStatus: true,
       needsRevision: true, revisionDetails: true, revisionComplete: true,
+      updatedAt: true,
       batch: { select: { name: true } },
     },
   })
 
-  const flat = cards.map((c) => ({ ...c, batchName: c.batch?.name ?? null, batch: undefined }))
+  const flat = cards.map((c) => ({
+    ...c,
+    batchName: c.batch?.name ?? null,
+    batch: undefined,
+    updatedAt: c.updatedAt.toISOString(),
+  }))
 
   return (
     <div className="-m-6 p-6 bg-zinc-900 min-h-[calc(100vh-88px)]">

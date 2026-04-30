@@ -18,6 +18,7 @@ export default async function EditorPage() {
       editorNeedsRevision: true, editorRevisionDetails: true, editorRevisionComplete: true,
       usedInAd: true, adNumber: true,
       transferStatus: true, transferError: true, transferredAt: true, dropboxPath: true,
+      updatedAt: true,
       batch: { select: { name: true } },
     },
   })
@@ -27,6 +28,7 @@ export default async function EditorPage() {
     batchName: c.batch?.name ?? null,
     batch: undefined,
     transferredAt: c.transferredAt?.toISOString() ?? null,
+    updatedAt: c.updatedAt.toISOString(),
   }))
 
   return (
