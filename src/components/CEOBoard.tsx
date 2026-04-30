@@ -182,13 +182,13 @@ export default function CEOBoard({ batches, unassigned }: { batches: Batch[]; un
           <thead>
             <tr className="text-xs font-semibold text-gray-400 uppercase tracking-wide bg-zinc-900">
               <th className="px-3 py-2.5 text-left w-8 rounded-tl-xl border-b border-zinc-700">#</th>
-              <th className="px-3 py-2.5 text-left min-w-[240px] border-b border-zinc-700">Concept</th>
+              <th className="px-3 py-2.5 text-left min-w-[200px] border-b border-zinc-700">Concept</th>
               <th className="px-3 py-2.5 text-left w-20 border-b border-zinc-700">Brief</th>
               <th className="px-3 py-2.5 text-left w-32 border-b border-zinc-700">Project Type</th>
               <th className="px-3 py-2.5 text-left w-32 border-b border-zinc-700">Style</th>
               <th className="px-3 py-2.5 text-left w-36 border-b border-zinc-700">Status</th>
               <th className="px-3 py-2.5 text-left w-24 border-b border-zinc-700">Ad #</th>
-              <th className="px-3 py-2.5 text-left w-48 border-b border-zinc-700">Extra Info</th>
+              <th className="px-3 py-2.5 text-left w-72 border-b border-zinc-700">Extra Info</th>
               <th className="px-3 py-2.5 text-left w-28 border-b border-zinc-700">Launch Date</th>
               <th className="px-3 py-2.5 text-left w-36 border-b border-zinc-700">Result</th>
               <th className="px-3 py-2.5 text-left min-w-[140px] border-b border-zinc-700">Learnings</th>
@@ -315,7 +315,7 @@ function CreativeRow({
         </div>
       </td>
       <td className="px-1 py-1">
-        <EditableCell cellId={`${rowIndex}-0`} value={creative.concept} onSave={(v) => onUpdate(creative.id, "concept", v)} multiline onNav={nav(0)} className="font-medium text-gray-100 min-w-[220px]" />
+        <EditableCell cellId={`${rowIndex}-0`} value={creative.concept} onSave={(v) => onUpdate(creative.id, "concept", v)} multiline onNav={nav(0)} className="font-medium text-gray-100 min-w-[180px]" />
       </td>
       <td className="px-2 py-1">
         <BriefCell cellId={`${rowIndex}-1`} value={creative.briefLink} onSave={(v) => onUpdate(creative.id, "briefLink", v)} onNav={nav(1)} />
