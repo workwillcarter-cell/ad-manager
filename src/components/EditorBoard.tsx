@@ -553,7 +553,10 @@ function TransferSection({ card }: { card: Card }) {
     return (
       <div className="border border-green-200 bg-green-50 rounded-xl p-4">
         <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">Dropbox transfer</p>
-        <p className="text-sm text-green-800">✓ Transferred to <span className="font-mono">{path ?? `/Ads/${card.adNumber}`}</span></p>
+        <p className="text-sm text-green-800">
+          ✓ Transferred to <span className="font-mono">{path ?? "/Ads"}</span> as{" "}
+          <span className="font-mono">{card.adNumber}V1–V3</span>
+        </p>
       </div>
     )
   }
@@ -564,7 +567,7 @@ function TransferSection({ card }: { card: Card }) {
         <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Dropbox transfer</p>
         <p className="text-xs text-gray-500 mt-1">
           Downloads the 3 files from the editor&apos;s Drive folder and uploads them to{" "}
-          <span className="font-mono">/Ads/{card.adNumber}</span> as{" "}
+          <span className="font-mono">/Ads</span> as{" "}
           <span className="font-mono">{card.adNumber}V1</span>,{" "}
           <span className="font-mono">V2</span>, <span className="font-mono">V3</span>.
         </p>
