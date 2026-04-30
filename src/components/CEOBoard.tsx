@@ -46,7 +46,7 @@ const CEO_STATUS_COLORS: Record<string, string> = {
   LAUNCHED:         "bg-pink-100 text-pink-700",
 }
 
-const PROJECT_TYPES = ["Script Shotlist", "Perfect UGC", "Cartoon", "UGC", "Image", "Clip Refresh"]
+const PROJECT_TYPES = ["Script Shotlist", "Perfect UGC", "Cartoon", "UGC", "Image", "Clip Refresh", "No Gen"]
 
 const PROJECT_TYPE_COLORS: Record<string, string> = {
   "Script Shotlist": "bg-orange-100 text-orange-700",
@@ -55,6 +55,7 @@ const PROJECT_TYPE_COLORS: Record<string, string> = {
   "UGC":             "bg-teal-100 text-teal-700",
   "Image":           "bg-sky-100 text-sky-700",
   "Clip Refresh":    "bg-violet-100 text-violet-700",
+  "No Gen":          "bg-slate-200 text-slate-700",
 }
 
 const STYLES = ["Net New", "Iteration", "Shotgun/Random"]

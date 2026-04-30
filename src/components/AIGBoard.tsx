@@ -53,9 +53,10 @@ const PROJECT_TYPE_COLORS: Record<string, string> = {
   "UGC":             "bg-teal-100 text-teal-700",
   "Image":           "bg-sky-100 text-sky-700",
   "Clip Refresh":    "bg-violet-100 text-violet-700",
+  "No Gen":          "bg-slate-200 text-slate-700",
 }
 
-const PROJECT_TYPES = ["Script Shotlist", "Perfect UGC", "Cartoon", "UGC", "Image", "Clip Refresh"]
+const PROJECT_TYPES = ["Script Shotlist", "Perfect UGC", "Cartoon", "UGC", "Image", "Clip Refresh", "No Gen"]
 
 export default function AIGBoard({ cards: initialCards, userRole }: { cards: Card[]; userRole: Role }) {
   const router = useRouter()
