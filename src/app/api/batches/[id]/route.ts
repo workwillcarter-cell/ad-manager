@@ -22,3 +22,23 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!batch) return NextResponse.json({ error: "Not found" }, { status: 404 })
   return NextResponse.json(batch)
 }
+
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (session.user.role !== "CEO") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  const { id } = await params
+  const { name } = await req.json()
+
+  if (typeof name !== "string" || !name.trim()) {
+    return NextResponse.json({ error: "Name is required" }, { status: 400 })
+  }
+
+  const batch = await prisma.batch.update({
+    where: { id },
+    data: { name: name.trim() },
+  })
+
+  return NextResponse.json(batch)
+}

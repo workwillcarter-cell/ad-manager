@@ -135,6 +135,15 @@ export default function CEOBoard({ batches, unassigned }: { batches: Batch[]; un
     router.refresh()
   }
 
+  async function renameBatch(id: string, name: string) {
+    await fetch(`/api/batches/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    })
+    router.refresh()
+  }
+
   const totalConcepts = allRows.length
 
   return (
@@ -232,7 +241,7 @@ export default function CEOBoard({ batches, unassigned }: { batches: Batch[]; un
                 <Fragment key={batch.id}>
                   <tr>
                     <td colSpan={COL_SPAN} className="bg-zinc-900 px-4 py-2 border-y border-zinc-700">
-                      <span className="font-bold text-gray-100 text-sm">{batch.name}</span>
+                      <BatchNameCell name={batch.name} onSave={(n) => renameBatch(batch.id, n)} />
                       <span className="ml-3 text-xs text-gray-400 font-normal">{batch.creatives.length} / 10</span>
                       {batch.sealed && (
                         <span className="ml-2 text-xs bg-zinc-700 text-gray-300 px-1.5 py-0.5 rounded-full">complete</span>
@@ -323,6 +332,45 @@ function CreativeRow({
         <NumberCell cellId={`${rowIndex}-11`} value={creative.roas} onSave={(v) => onUpdate(creative.id, "roas", v)} decimals={2} onNav={nav(11)} />
       </td>
     </tr>
+  )
+}
+
+function BatchNameCell({ name, onSave }: { name: string; onSave: (n: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(name)
+
+  function commit() {
+    setEditing(false)
+    const trimmed = draft.trim()
+    if (trimmed && trimmed !== name) onSave(trimmed)
+    else setDraft(name)
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); commit() }
+          if (e.key === "Escape") { setDraft(name); setEditing(false) }
+        }}
+        className="font-bold text-gray-100 text-sm bg-zinc-800 border border-bloom rounded-md px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-bloom/40"
+      />
+    )
+  }
+
+  return (
+    <button
+      onClick={() => { setDraft(name); setEditing(true) }}
+      className="font-bold text-gray-100 text-sm hover:text-bloom-leaf transition-colors"
+      title="Click to rename"
+    >
+      {name}
+    </button>
   )
 }
 
