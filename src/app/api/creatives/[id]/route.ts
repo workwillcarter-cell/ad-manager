@@ -30,7 +30,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const {
     concept, briefLink, finishedAdLink, learnings,
     adNumber, launchDate, result, spend, roas, extraInfo, ceoStatus,
-    aigStatus, projectType, aigNotes, needsRevision, revisionDetails, revisionComplete,
+    aigStatus, projectType, style, aigNotes, needsRevision, revisionDetails, revisionComplete,
     editorStatus, editorNotes, editorNeedsRevision, editorRevisionDetails, editorRevisionComplete,
     editorDriveLink, usedInAd,
   } = body
@@ -129,6 +129,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(ceoStatus !== undefined && { ceoStatus: ceoStatus || null }),
       ...(aigStatus !== undefined && { aigStatus: aigStatus || null }),
       ...(projectType !== undefined && { projectType: projectType || null }),
+      ...(style !== undefined && { style: style || null }),
       ...(aigNotes !== undefined && { aigNotes: aigNotes || null }),
       ...(needsRevision !== undefined && { needsRevision }),
       ...(revisionDetails !== undefined && { revisionDetails: revisionDetails || null }),

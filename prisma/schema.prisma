@@ -74,6 +74,7 @@ model Creative {
   ceoStatus        String?
   aigStatus        String?
   projectType      String?
+  style            String?
   aigNotes         String?
   needsRevision    Boolean  @default(false)
   revisionDetails  String?

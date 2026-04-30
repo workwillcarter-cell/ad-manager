@@ -17,6 +17,8 @@ type Creative = {
   roas: number | null
   stage: Stage
   ceoStatus: string | null
+  projectType: string | null
+  style: string | null
   editorDriveLink: string | null
 }
 
@@ -44,6 +46,25 @@ const CEO_STATUS_COLORS: Record<string, string> = {
   LAUNCHED:         "bg-pink-100 text-pink-700",
 }
 
+const PROJECT_TYPES = ["Script Shotlist", "Perfect UGC", "Cartoon", "UGC", "Image", "Clip Refresh"]
+
+const PROJECT_TYPE_COLORS: Record<string, string> = {
+  "Script Shotlist": "bg-orange-100 text-orange-700",
+  "Perfect UGC":     "bg-pink-100 text-pink-700",
+  "Cartoon":         "bg-yellow-100 text-yellow-700",
+  "UGC":             "bg-teal-100 text-teal-700",
+  "Image":           "bg-sky-100 text-sky-700",
+  "Clip Refresh":    "bg-violet-100 text-violet-700",
+}
+
+const STYLES = ["Net New", "Iteration", "Shotgun/Random"]
+
+const STYLE_COLORS: Record<string, string> = {
+  "Net New":        "bg-emerald-100 text-emerald-700",
+  "Iteration":      "bg-indigo-100 text-indigo-700",
+  "Shotgun/Random": "bg-amber-100 text-amber-700",
+}
+
 const RESULT_LABELS: Record<Result, string> = {
   FAILED: "Failed",
   WINNER: "Winner",
@@ -58,8 +79,8 @@ const RESULT_COLORS: Record<Result, string> = {
   SPENT_BUT_POOR_PERFORMANCE: "bg-orange-100 text-orange-700",
 }
 
-const COL_SPAN = 11
-const TOTAL_COLS = 10 // navigable columns: 0=concept 1=brief 2=status 3=adNumber 4=extraInfo 5=launchDate 6=result 7=learnings 8=spend 9=roas
+const COL_SPAN = 13
+const TOTAL_COLS = 12 // navigable columns: 0=concept 1=brief 2=projectType 3=style 4=status 5=adNumber 6=extraInfo 7=launchDate 8=result 9=learnings 10=spend 11=roas
 
 type NavDir = "tab" | "shift-tab" | "enter"
 
@@ -134,6 +155,8 @@ export default function CEOBoard({ batches, unassigned }: { batches: Batch[]; un
               <th className="px-3 py-2.5 text-left w-8 rounded-tl-xl border-b border-zinc-700">#</th>
               <th className="px-3 py-2.5 text-left min-w-[240px] border-b border-zinc-700">Concept</th>
               <th className="px-3 py-2.5 text-left w-20 border-b border-zinc-700">Brief</th>
+              <th className="px-3 py-2.5 text-left w-32 border-b border-zinc-700">Project Type</th>
+              <th className="px-3 py-2.5 text-left w-32 border-b border-zinc-700">Style</th>
               <th className="px-3 py-2.5 text-left w-36 border-b border-zinc-700">Status</th>
               <th className="px-3 py-2.5 text-left w-24 border-b border-zinc-700">Ad #</th>
               <th className="px-3 py-2.5 text-left w-48 border-b border-zinc-700">Extra Info</th>
@@ -269,30 +292,102 @@ function CreativeRow({
         <BriefCell cellId={`${rowIndex}-1`} value={creative.briefLink} onSave={(v) => onUpdate(creative.id, "briefLink", v)} onNav={nav(1)} />
       </td>
       <td className="px-1 py-1">
-        <CEOStatusCell cellId={`${rowIndex}-2`} value={creative.ceoStatus} onSave={(v) => onUpdate(creative.id, "ceoStatus", v)} onNav={nav(2)} />
+        <ProjectTypeCell cellId={`${rowIndex}-2`} value={creative.projectType} onSave={(v) => onUpdate(creative.id, "projectType", v)} onNav={nav(2)} />
       </td>
       <td className="px-1 py-1">
-        <AdNumberCell cellId={`${rowIndex}-3`} value={creative.adNumber} driveLink={creative.editorDriveLink} onSave={(v) => onUpdate(creative.id, "adNumber", v)} onNav={nav(3)} />
+        <StyleCell cellId={`${rowIndex}-3`} value={creative.style} onSave={(v) => onUpdate(creative.id, "style", v)} onNav={nav(3)} />
       </td>
       <td className="px-1 py-1">
-        <EditableCell cellId={`${rowIndex}-4`} value={creative.extraInfo ?? ""} onSave={(v) => onUpdate(creative.id, "extraInfo", v || null)} placeholder="—" onNav={nav(4)} className="text-gray-300 text-xs" />
+        <CEOStatusCell cellId={`${rowIndex}-4`} value={creative.ceoStatus} onSave={(v) => onUpdate(creative.id, "ceoStatus", v)} onNav={nav(4)} />
       </td>
       <td className="px-1 py-1">
-        <DateCell cellId={`${rowIndex}-5`} value={creative.launchDate} onSave={(v) => onUpdate(creative.id, "launchDate", v)} onNav={nav(5)} />
+        <AdNumberCell cellId={`${rowIndex}-5`} value={creative.adNumber} driveLink={creative.editorDriveLink} onSave={(v) => onUpdate(creative.id, "adNumber", v)} onNav={nav(5)} />
       </td>
       <td className="px-1 py-1">
-        <ResultCell cellId={`${rowIndex}-6`} value={creative.result} onSave={(v) => onUpdate(creative.id, "result", v)} onNav={nav(6)} />
+        <EditableCell cellId={`${rowIndex}-6`} value={creative.extraInfo ?? ""} onSave={(v) => onUpdate(creative.id, "extraInfo", v || null)} placeholder="—" onNav={nav(6)} className="text-gray-300 text-xs" />
       </td>
       <td className="px-1 py-1">
-        <EditableCell cellId={`${rowIndex}-7`} value={creative.learnings ?? ""} onSave={(v) => onUpdate(creative.id, "learnings", v || null)} placeholder="—" multiline onNav={nav(7)} className="text-gray-300 text-xs" />
+        <DateCell cellId={`${rowIndex}-7`} value={creative.launchDate} onSave={(v) => onUpdate(creative.id, "launchDate", v)} onNav={nav(7)} />
       </td>
       <td className="px-1 py-1">
-        <NumberCell cellId={`${rowIndex}-8`} value={creative.spend} onSave={(v) => onUpdate(creative.id, "spend", v)} prefix="$" onNav={nav(8)} />
+        <ResultCell cellId={`${rowIndex}-8`} value={creative.result} onSave={(v) => onUpdate(creative.id, "result", v)} onNav={nav(8)} />
       </td>
       <td className="px-1 py-1">
-        <NumberCell cellId={`${rowIndex}-9`} value={creative.roas} onSave={(v) => onUpdate(creative.id, "roas", v)} decimals={2} onNav={nav(9)} />
+        <EditableCell cellId={`${rowIndex}-9`} value={creative.learnings ?? ""} onSave={(v) => onUpdate(creative.id, "learnings", v || null)} placeholder="—" multiline onNav={nav(9)} className="text-gray-300 text-xs" />
+      </td>
+      <td className="px-1 py-1">
+        <NumberCell cellId={`${rowIndex}-10`} value={creative.spend} onSave={(v) => onUpdate(creative.id, "spend", v)} prefix="$" onNav={nav(10)} />
+      </td>
+      <td className="px-1 py-1">
+        <NumberCell cellId={`${rowIndex}-11`} value={creative.roas} onSave={(v) => onUpdate(creative.id, "roas", v)} decimals={2} onNav={nav(11)} />
       </td>
     </tr>
+  )
+}
+
+function ProjectTypeCell({ value, onSave, cellId, onNav }: { value: string | null; onSave: (v: string | null) => void; cellId: string; onNav: (d: NavDir) => void }) {
+  const [editing, setEditing] = useState(false)
+
+  if (editing) {
+    return (
+      <select
+        autoFocus
+        defaultValue={value ?? ""}
+        onChange={(e) => { onSave(e.target.value || null); setEditing(false) }}
+        onBlur={() => setEditing(false)}
+        onKeyDown={(e) => {
+          if (e.key === "Tab") { e.preventDefault(); setEditing(false); onNav(e.shiftKey ? "shift-tab" : "tab") }
+          if (e.key === "Enter") { setEditing(false); onNav("enter") }
+          if (e.key === "Escape") setEditing(false)
+        }}
+        className="text-xs text-gray-100 border border-bloom rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-bloom/40 bg-zinc-900"
+      >
+        <option value="">— No type</option>
+        {PROJECT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+      </select>
+    )
+  }
+
+  return (
+    <div data-cell={cellId} onClick={() => setEditing(true)} className="cursor-pointer min-h-[28px] px-2 py-1 rounded-lg hover:bg-zinc-700/60 transition-all">
+      {value
+        ? <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${PROJECT_TYPE_COLORS[value] ?? "bg-gray-100 text-gray-600"}`}>{value}</span>
+        : <span className="text-xs text-gray-500 italic">—</span>
+      }
+    </div>
+  )
+}
+
+function StyleCell({ value, onSave, cellId, onNav }: { value: string | null; onSave: (v: string | null) => void; cellId: string; onNav: (d: NavDir) => void }) {
+  const [editing, setEditing] = useState(false)
+
+  if (editing) {
+    return (
+      <select
+        autoFocus
+        defaultValue={value ?? ""}
+        onChange={(e) => { onSave(e.target.value || null); setEditing(false) }}
+        onBlur={() => setEditing(false)}
+        onKeyDown={(e) => {
+          if (e.key === "Tab") { e.preventDefault(); setEditing(false); onNav(e.shiftKey ? "shift-tab" : "tab") }
+          if (e.key === "Enter") { setEditing(false); onNav("enter") }
+          if (e.key === "Escape") setEditing(false)
+        }}
+        className="text-xs text-gray-100 border border-bloom rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-bloom/40 bg-zinc-900"
+      >
+        <option value="">— No style</option>
+        {STYLES.map((s) => <option key={s} value={s}>{s}</option>)}
+      </select>
+    )
+  }
+
+  return (
+    <div data-cell={cellId} onClick={() => setEditing(true)} className="cursor-pointer min-h-[28px] px-2 py-1 rounded-lg hover:bg-zinc-700/60 transition-all">
+      {value
+        ? <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${STYLE_COLORS[value] ?? "bg-gray-100 text-gray-600"}`}>{value}</span>
+        : <span className="text-xs text-gray-500 italic">—</span>
+      }
+    </div>
   )
 }
 

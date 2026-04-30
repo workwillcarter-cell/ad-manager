@@ -15,6 +15,7 @@ export default async function DashboardPage() {
       id: true, concept: true, briefLink: true, adNumber: true,
       extraInfo: true, launchDate: true, result: true, learnings: true,
       spend: true, roas: true, stage: true, ceoStatus: true,
+      projectType: true, style: true,
       editorDriveLink: true,
     }
 
