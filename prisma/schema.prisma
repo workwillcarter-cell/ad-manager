@@ -60,6 +60,8 @@ model Batch {
 
 model Creative {
   id             String   @id @default(cuid())
+  kind           String?  // null/"CONCEPT" = regular ad, "PAYMENT_CREDIT" = AIG payment-tracking card
+  paymentAmount  Float?   // PHP amount for payment-credit cards
   concept        String
   briefLink      String?
   finishedAdLink String?

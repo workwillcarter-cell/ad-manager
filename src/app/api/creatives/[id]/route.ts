@@ -32,37 +32,40 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     adNumber, launchDate, result, spend, roas, extraInfo, ceoStatus,
     aigStatus, projectType, style, aigNotes, needsRevision, revisionDetails, revisionComplete,
     editorStatus, editorNotes, editorNeedsRevision, editorRevisionDetails, editorRevisionComplete,
-    editorDriveLink, usedInAd,
+    editorDriveLink, usedInAd, paymentAmount,
   } = body
+
+  const existingKind = await prisma.creative.findUnique({ where: { id }, select: { kind: true } })
+  const isPaymentCredit = existingKind?.kind === "PAYMENT_CREDIT"
 
   // Auto-set launch date when CEO marks Launched
   let autoLaunchDate: Date | undefined = undefined
-  if (ceoStatus === "LAUNCHED" && launchDate === undefined) {
+  if (!isPaymentCredit && ceoStatus === "LAUNCHED" && launchDate === undefined) {
     const existing = await prisma.creative.findUnique({ where: { id }, select: { launchDate: true } })
     if (!existing?.launchDate) autoLaunchDate = new Date()
   }
 
   // Auto-assign to AIG board when CEO marks Moved to AIG
   let autoAigStatus: string | undefined = undefined
-  if (ceoStatus === "MOVED_TO_AIG") {
+  if (!isPaymentCredit && ceoStatus === "MOVED_TO_AIG") {
     const existing = await prisma.creative.findUnique({ where: { id }, select: { aigStatus: true } })
     if (!existing?.aigStatus) autoAigStatus = "ASSIGNED"
   }
 
   // Auto-assign to Editor board when CEO marks Moved to Editor OR when AIG moves to Added to Editor
   let autoEditorStatus: string | undefined = undefined
-  if (ceoStatus === "MOVED_TO_EDITOR") {
+  if (!isPaymentCredit && ceoStatus === "MOVED_TO_EDITOR") {
     const existing = await prisma.creative.findUnique({ where: { id }, select: { editorStatus: true } })
     if (!existing?.editorStatus) autoEditorStatus = "ASSIGNED"
   }
-  if (aigStatus === "ADDED_TO_EDITOR") {
+  if (!isPaymentCredit && aigStatus === "ADDED_TO_EDITOR") {
     const existing = await prisma.creative.findUnique({ where: { id }, select: { editorStatus: true } })
     if (!existing?.editorStatus) autoEditorStatus = "ASSIGNED"
   }
 
   // Auto-mark CEO Ready when Editor finishes (COMPLETE)
   let autoCeoStatus: string | undefined = undefined
-  if (editorStatus === "COMPLETE" && ceoStatus === undefined) {
+  if (!isPaymentCredit && editorStatus === "COMPLETE" && ceoStatus === undefined) {
     const existing = await prisma.creative.findUnique({ where: { id }, select: { ceoStatus: true } })
     if (existing?.ceoStatus !== "READY" && existing?.ceoStatus !== "LAUNCHED") {
       autoCeoStatus = "READY"
@@ -71,13 +74,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const effectiveCeoStatus = autoCeoStatus ?? ceoStatus
 
-  // When effectively READY, auto-assign batch + ad name
+  // When effectively READY, auto-assign batch + ad name. Image projects use BloomIMG###; everything else uses Bloom###.
   let batchId: string | undefined = undefined
   let autoAdNumber: string | undefined = undefined
-  if (effectiveCeoStatus === "READY") {
+  if (!isPaymentCredit && effectiveCeoStatus === "READY") {
     const existing = await prisma.creative.findUnique({
       where: { id },
-      select: { batchId: true, adNumber: true },
+      select: { batchId: true, adNumber: true, projectType: true },
     })
 
     if (!existing?.batchId) {
@@ -99,17 +102,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     if (!existing?.adNumber && adNumber === undefined) {
+      const effectiveProjectType = projectType !== undefined ? projectType : existing?.projectType
+      const isImage = effectiveProjectType === "Image"
+      const prefix = isImage ? "BloomIMG" : "Bloom"
+      const startFloor = isImage ? 0 : 99
+      const pattern = new RegExp(`^${prefix}(\\d+)$`)
       const named = await prisma.creative.findMany({
-        where: { adNumber: { startsWith: "Bloom" } },
+        where: { adNumber: { startsWith: prefix } },
         select: { adNumber: true },
       })
       const maxNum = named.reduce((max, c) => {
-        const m = c.adNumber?.match(/^Bloom(\d+)$/)
+        const m = c.adNumber?.match(pattern)
         if (!m) return max
         const n = parseInt(m[1], 10)
         return Number.isNaN(n) ? max : Math.max(max, n)
-      }, 99)
-      autoAdNumber = `Bloom${maxNum + 1}`
+      }, startFloor)
+      autoAdNumber = `${prefix}${maxNum + 1}`
     }
   }
 
@@ -141,6 +149,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(editorRevisionComplete !== undefined && { editorRevisionComplete }),
       ...(editorDriveLink !== undefined && { editorDriveLink: editorDriveLink || null }),
       ...(usedInAd !== undefined && { usedInAd: usedInAd || null }),
+      ...(paymentAmount !== undefined && { paymentAmount: paymentAmount !== null ? Number(paymentAmount) : null }),
       ...(batchId !== undefined && { batchId }),
       ...(autoLaunchDate !== undefined && { launchDate: autoLaunchDate }),
       ...(autoAigStatus !== undefined && { aigStatus: autoAigStatus }),

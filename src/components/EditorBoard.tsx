@@ -352,13 +352,25 @@ function CardModal({ card, userRole, onClose, onUpdate, onMarkComplete }: {
           </Field>
 
           <Field label="Completed Drive Link">
-            <input
-              type="url"
-              value={fields.editorDriveLink}
-              onChange={(e) => setFields((f) => ({ ...f, editorDriveLink: e.target.value }))}
-              placeholder="https://drive.google.com/..."
-              className="w-full text-sm text-gray-900 border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-bloom"
-            />
+            <div className="flex items-center gap-2">
+              <input
+                type="url"
+                value={fields.editorDriveLink}
+                onChange={(e) => setFields((f) => ({ ...f, editorDriveLink: e.target.value }))}
+                placeholder="https://drive.google.com/..."
+                className="flex-1 text-sm text-gray-900 border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-bloom"
+              />
+              {fields.editorDriveLink.trim() && (
+                <a
+                  href={fields.editorDriveLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium bg-bloom-dark text-white px-3 py-1.5 rounded-lg hover:bg-bloom whitespace-nowrap"
+                >
+                  Open ↗
+                </a>
+              )}
+            </div>
           </Field>
 
           <Field label="Notes">

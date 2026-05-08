@@ -16,6 +16,7 @@ export default async function AIGPage() {
       id: true, concept: true, briefLink: true, finishedAdLink: true,
       projectType: true, aigNotes: true, aigStatus: true,
       needsRevision: true, revisionDetails: true, revisionComplete: true,
+      kind: true, paymentAmount: true,
       updatedAt: true,
       batch: { select: { name: true } },
     },

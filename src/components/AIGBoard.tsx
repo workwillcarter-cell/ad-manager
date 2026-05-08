@@ -15,6 +15,8 @@ type Card = {
   needsRevision: boolean
   revisionDetails: string | null
   revisionComplete: boolean
+  kind: string | null
+  paymentAmount: number | null
   updatedAt: string
   batchName: string | null
 }
@@ -69,6 +71,7 @@ export default function AIGBoard({ cards: initialCards, userRole }: { cards: Car
   const [dragOverColId, setDragOverColId] = useState<string | null>(null)
   const dragIdRef = useRef<string | null>(null)
   const [confirmMove, setConfirmMove] = useState<{ cardId: string; colId: string } | null>(null)
+  const [creditModalOpen, setCreditModalOpen] = useState(false)
 
   useEffect(() => { setCards(initialCards) }, [initialCards])
 
@@ -137,6 +140,14 @@ export default function AIGBoard({ cards: initialCards, userRole }: { cards: Car
                   <span className="text-xs text-gray-400 font-medium">{colCards.length}</span>
                 </div>
                 <div className="space-y-3 min-h-[80px]">
+                  {col.id === "COMPLETE" && (userRole === "AI_GENERATOR" || userRole === "CEO") && (
+                    <button
+                      onClick={() => setCreditModalOpen(true)}
+                      className="w-full text-xs font-medium text-emerald-700 bg-emerald-50 border border-dashed border-emerald-300 hover:bg-emerald-100 rounded-xl py-2 transition-colors"
+                    >
+                      + Add Payment Credit
+                    </button>
+                  )}
                   {colCards.map((card) => (
                     <AIGCard
                       key={card.id}
@@ -147,7 +158,7 @@ export default function AIGBoard({ cards: initialCards, userRole }: { cards: Car
                       onDragEnd={() => { setDraggingId(null); setDragOverColId(null); dragIdRef.current = null }}
                     />
                   ))}
-                  {colCards.length === 0 && (
+                  {colCards.length === 0 && col.id !== "COMPLETE" && (
                     <div className={`border-2 border-dashed rounded-xl h-20 flex items-center justify-center transition-colors ${isOver ? "border-blue-300" : "border-gray-200"}`}>
                       <span className="text-xs text-gray-300">Empty</span>
                     </div>
@@ -159,13 +170,27 @@ export default function AIGBoard({ cards: initialCards, userRole }: { cards: Car
         </div>
       </div>
 
-      {selected && (
+      {selected && selected.kind === "PAYMENT_CREDIT" && (
+        <PaymentCreditModal
+          card={selected}
+          userRole={userRole}
+          onClose={() => setSelected(null)}
+        />
+      )}
+      {selected && selected.kind !== "PAYMENT_CREDIT" && (
         <CardModal
           card={selected}
           userRole={userRole}
           onClose={() => setSelected(null)}
           onUpdate={(updated) => setSelected(updated)}
           onMoveToEditor={(cardId) => setConfirmMove({ cardId, colId: "ADDED_TO_EDITOR" })}
+        />
+      )}
+
+      {creditModalOpen && (
+        <PaymentCreditCreateModal
+          onClose={() => setCreditModalOpen(false)}
+          onCreated={() => { setCreditModalOpen(false); router.refresh() }}
         />
       )}
 
@@ -202,6 +227,11 @@ export default function AIGBoard({ cards: initialCards, userRole }: { cards: Car
   )
 }
 
+function formatPHP(n: number | null): string {
+  if (n === null || n === undefined) return "—"
+  return `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
 function AIGCard({ card, isDragging, onClick, onDragStart, onDragEnd }: {
   card: Card
   isDragging: boolean
@@ -211,6 +241,36 @@ function AIGCard({ card, isDragging, onClick, onDragStart, onDragEnd }: {
 }) {
   const revisions = parseRevisions(card.revisionDetails)
   const openRevisions = revisions.filter((r) => !r.complete)
+  const isPaymentCredit = card.kind === "PAYMENT_CREDIT"
+
+  if (isPaymentCredit) {
+    return (
+      <div
+        draggable
+        onClick={onClick}
+        onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart() }}
+        onDragEnd={onDragEnd}
+        className={`bg-emerald-50 border border-emerald-200 rounded-xl p-4 cursor-grab active:cursor-grabbing hover:shadow-md transition-all select-none ${isDragging ? "opacity-40 scale-95" : ""}`}
+      >
+        <span className="inline-block text-xs px-2 py-0.5 rounded-full font-medium mb-2 bg-emerald-100 text-emerald-700">
+          Payment Credit
+        </span>
+        <p className="text-base font-bold text-emerald-900 mb-1">{formatPHP(card.paymentAmount)}</p>
+        <p className="text-sm text-gray-700 mb-2 line-clamp-2">{card.concept}</p>
+        {card.finishedAdLink && (
+          <a
+            href={card.finishedAdLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-xs text-emerald-700 hover:underline"
+          >
+            Invoice ↗
+          </a>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div
@@ -256,6 +316,277 @@ function AIGCard({ card, isDragging, onClick, onDragStart, onDragEnd }: {
       {card.needsRevision && openRevisions.length === 0 && revisions.length > 0 && (
         <div className="mt-2 text-xs text-green-600 font-medium">✓ All revisions complete</div>
       )}
+    </div>
+  )
+}
+
+function PaymentCreditModal({ card, userRole, onClose }: {
+  card: Card
+  userRole: Role
+  onClose: () => void
+}) {
+  const router = useRouter()
+  const [description, setDescription] = useState(card.concept)
+  const [amount, setAmount] = useState(card.paymentAmount !== null ? String(card.paymentAmount) : "")
+  const [invoiceLink, setInvoiceLink] = useState(card.finishedAdLink ?? "")
+  const [notes, setNotes] = useState(card.aigNotes ?? "")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function patch(data: Record<string, unknown>) {
+    setSaving(true)
+    const res = await fetch(`/api/creatives/${card.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    })
+    setSaving(false)
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}))
+      setError(json.error ?? `Save failed (${res.status})`)
+      return false
+    }
+    router.refresh()
+    return true
+  }
+
+  async function saveFields() {
+    if (!description.trim()) { setError("Description is required"); return }
+    const amt = parseFloat(amount)
+    if (isNaN(amt) || amt <= 0) { setError("PHP amount must be a positive number"); return }
+    setError(null)
+    const ok = await patch({
+      concept: description.trim(),
+      paymentAmount: amt,
+      finishedAdLink: invoiceLink.trim() || null,
+      aigNotes: notes.trim() || null,
+    })
+    if (ok) onClose()
+  }
+
+  async function moveTo(status: string) {
+    const ok = await patch({ aigStatus: status })
+    if (ok) onClose()
+  }
+
+  async function deleteCard() {
+    if (!confirm(`Delete this Payment Credit (${formatPHP(card.paymentAmount)})? This cannot be undone.`)) return
+    setSaving(true)
+    await fetch(`/api/creatives/${card.id}`, { method: "DELETE" })
+    router.refresh()
+    onClose()
+  }
+
+  const currentColIndex = AIG_COLUMNS.findIndex((c) => c.id === card.aigStatus)
+  const nextCol = AIG_COLUMNS[currentColIndex + 1]
+  const prevCol = AIG_COLUMNS[currentColIndex - 1]
+  const canDelete = userRole === "CEO"
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 pt-6 pb-3 border-b border-gray-100">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <span className="inline-block text-xs px-2 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-700 mb-1">
+                Payment Credit
+              </span>
+              <h2 className="font-semibold text-gray-900">{description || "Payment Credit"}</h2>
+            </div>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+          </div>
+        </div>
+        <div className="px-6 py-4 space-y-4">
+          <Field label="Description">
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full text-sm text-gray-900 border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-bloom"
+            />
+          </Field>
+          <Field label="PHP Amount">
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">₱</span>
+              <input
+                type="number"
+                step="any"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-full text-sm text-gray-900 border border-gray-300 rounded-lg pl-7 pr-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-bloom"
+              />
+            </div>
+          </Field>
+          <Field label="Invoice Drive Link">
+            <div className="flex items-center gap-2">
+              <input
+                type="url"
+                value={invoiceLink}
+                onChange={(e) => setInvoiceLink(e.target.value)}
+                placeholder="https://drive.google.com/..."
+                className="flex-1 text-sm text-gray-900 border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-bloom"
+              />
+              {invoiceLink.trim() && (
+                <a
+                  href={invoiceLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium bg-bloom-dark text-white px-3 py-1.5 rounded-lg hover:bg-bloom whitespace-nowrap"
+                >
+                  Open ↗
+                </a>
+              )}
+            </div>
+          </Field>
+          <Field label="Notes (optional)">
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              className="w-full text-sm text-gray-900 border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-bloom resize-none"
+            />
+          </Field>
+          {error && <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
+        </div>
+        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between gap-3">
+          <div className="flex gap-2">
+            {prevCol && (
+              <button onClick={() => moveTo(prevCol.id)} disabled={saving} className="text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+                ← {prevCol.label}
+              </button>
+            )}
+            {nextCol && nextCol.id !== "ADDED_TO_EDITOR" && (
+              <button onClick={() => moveTo(nextCol.id)} disabled={saving} className="text-xs bg-bloom text-white px-3 py-1.5 rounded-lg hover:bg-bloom-dark disabled:opacity-50">
+                {nextCol.label} →
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {canDelete && (
+              <button
+                onClick={deleteCard}
+                disabled={saving}
+                className="text-xs text-red-600 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 disabled:opacity-50"
+              >
+                Delete
+              </button>
+            )}
+            <button onClick={saveFields} disabled={saving} className="text-sm bg-gray-900 text-white px-4 py-1.5 rounded-lg hover:bg-gray-700 disabled:opacity-50">
+              {saving ? "Saving..." : "Save"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PaymentCreditCreateModal({ onClose, onCreated }: {
+  onClose: () => void
+  onCreated: () => void
+}) {
+  const [description, setDescription] = useState("")
+  const [amount, setAmount] = useState("")
+  const [invoiceLink, setInvoiceLink] = useState("")
+  const [notes, setNotes] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function save() {
+    if (!description.trim()) { setError("Description is required"); return }
+    const amt = parseFloat(amount)
+    if (isNaN(amt) || amt <= 0) { setError("PHP amount must be a positive number"); return }
+    setSaving(true)
+    setError(null)
+    const res = await fetch("/api/creatives", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: "PAYMENT_CREDIT",
+        concept: description.trim(),
+        paymentAmount: amt,
+        finishedAdLink: invoiceLink.trim() || null,
+        aigNotes: notes.trim() || null,
+        aigStatus: "COMPLETE",
+      }),
+    })
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}))
+      setError(json.error ?? `Save failed (${res.status})`)
+      setSaving(false)
+      return
+    }
+    setSaving(false)
+    onCreated()
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 pt-6 pb-3 border-b border-gray-100">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <span className="inline-block text-xs px-2 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-700 mb-1">
+                Payment Credit
+              </span>
+              <h2 className="font-semibold text-gray-900">New Payment Credit</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Logs how much you spent on credits — Will pays you the PHP amount.</p>
+            </div>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+          </div>
+        </div>
+        <div className="px-6 py-4 space-y-4">
+          <Field label="Description">
+            <input
+              autoFocus
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g. May credit batch — ChatGPT, Veo, Runway"
+              className="w-full text-sm text-gray-900 border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-bloom"
+            />
+          </Field>
+          <Field label="PHP Amount">
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">₱</span>
+              <input
+                type="number"
+                step="any"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                className="w-full text-sm text-gray-900 border border-gray-300 rounded-lg pl-7 pr-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-bloom"
+              />
+            </div>
+          </Field>
+          <Field label="Invoice Drive Link">
+            <input
+              type="url"
+              value={invoiceLink}
+              onChange={(e) => setInvoiceLink(e.target.value)}
+              placeholder="https://drive.google.com/..."
+              className="w-full text-sm text-gray-900 border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-bloom"
+            />
+          </Field>
+          <Field label="Notes (optional)">
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              className="w-full text-sm text-gray-900 border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-bloom resize-none"
+            />
+          </Field>
+          {error && <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
+        </div>
+        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-2">
+          <button onClick={onClose} disabled={saving} className="text-sm text-gray-500 border border-gray-200 px-4 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+            Cancel
+          </button>
+          <button onClick={save} disabled={saving} className="text-sm bg-emerald-600 text-white px-4 py-1.5 rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+            {saving ? "Saving..." : "Add to Complete"}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -394,13 +725,25 @@ function CardModal({ card, userRole, onClose, onUpdate, onMoveToEditor }: {
           </Field>
 
           <Field label="Completed Drive Link">
-            <input
-              type="url"
-              value={fields.finishedAdLink}
-              onChange={(e) => setFields((f) => ({ ...f, finishedAdLink: e.target.value }))}
-              placeholder="https://drive.google.com/..."
-              className="w-full text-sm text-gray-900 border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-bloom"
-            />
+            <div className="flex items-center gap-2">
+              <input
+                type="url"
+                value={fields.finishedAdLink}
+                onChange={(e) => setFields((f) => ({ ...f, finishedAdLink: e.target.value }))}
+                placeholder="https://drive.google.com/..."
+                className="flex-1 text-sm text-gray-900 border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-bloom"
+              />
+              {fields.finishedAdLink.trim() && (
+                <a
+                  href={fields.finishedAdLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium bg-bloom-dark text-white px-3 py-1.5 rounded-lg hover:bg-bloom whitespace-nowrap"
+                >
+                  Open ↗
+                </a>
+              )}
+            </div>
           </Field>
 
           <Field label="Notes">
