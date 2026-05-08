@@ -20,6 +20,8 @@ type Creative = {
   projectType: string | null
   style: string | null
   editorDriveLink: string | null
+  editorStatus: string | null
+  transferStatus: string | null
 }
 
 type Batch = {
@@ -260,11 +262,14 @@ export default function CEOBoard({ batches, unassigned }: { batches: Batch[]; un
                 <Fragment key={batch.id}>
                   <tr>
                     <td colSpan={COL_SPAN} className="bg-zinc-900 px-4 py-2 border-y border-zinc-700">
-                      <BatchNameCell name={batch.name} onSave={(n) => renameBatch(batch.id, n)} />
-                      <span className="ml-3 text-xs text-gray-400 font-normal">{batch.creatives.length} / 10</span>
-                      {batch.sealed && (
-                        <span className="ml-2 text-xs bg-zinc-700 text-gray-300 px-1.5 py-0.5 rounded-full">complete</span>
-                      )}
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <BatchNameCell name={batch.name} onSave={(n) => renameBatch(batch.id, n)} />
+                        <span className="text-xs text-gray-400 font-normal">{batch.creatives.length} / 10</span>
+                        {batch.sealed && (
+                          <span className="text-xs bg-zinc-700 text-gray-300 px-1.5 py-0.5 rounded-full">complete</span>
+                        )}
+                        {batch.sealed && <BatchActions batch={batch} />}
+                      </div>
                     </td>
                   </tr>
                   {batch.creatives.map((creative, i) => (
@@ -351,6 +356,95 @@ function CreativeRow({
         <NumberCell cellId={`${rowIndex}-11`} value={creative.roas} onSave={(v) => onUpdate(creative.id, "roas", v)} decimals={2} onNav={nav(11)} />
       </td>
     </tr>
+  )
+}
+
+function BatchActions({ batch }: { batch: Batch }) {
+  const router = useRouter()
+  const [transferring, setTransferring] = useState(false)
+  const [launching, setLaunching] = useState(false)
+  const [transferMsg, setTransferMsg] = useState<string | null>(null)
+
+  const pendingTransfers = batch.creatives.filter(
+    (c) => c.transferStatus !== "DONE" && c.editorStatus === "COMPLETE" && c.editorDriveLink && c.adNumber,
+  ).length
+  const allTransferred =
+    pendingTransfers === 0 && batch.creatives.some((c) => c.transferStatus === "DONE")
+  const allLaunched = batch.creatives.every((c) => c.ceoStatus === "LAUNCHED")
+
+  async function transferBatch() {
+    if (transferring) return
+    setTransferring(true)
+    setTransferMsg(null)
+    try {
+      const res = await fetch(`/api/batches/${batch.id}/transfer`, { method: "POST" })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setTransferMsg(json.error ?? `Transfer failed (${res.status})`)
+      } else {
+        const { transferred, failed, skipped } = json as { transferred: number; failed: number; skipped: number }
+        if (failed > 0) {
+          setTransferMsg(`Transferred ${transferred}, failed ${failed}, skipped ${skipped}. See per-ad status for details.`)
+        } else {
+          setTransferMsg(`Transferred ${transferred} ad${transferred === 1 ? "" : "s"}${skipped ? `, skipped ${skipped}` : ""}.`)
+        }
+      }
+    } catch (err) {
+      setTransferMsg(err instanceof Error ? err.message : "Network error")
+    }
+    setTransferring(false)
+    router.refresh()
+  }
+
+  async function launchBatch() {
+    if (launching) return
+    if (!confirm(`Mark all ${batch.creatives.length} ads in "${batch.name}" as Launched? This will set their status to Launched and stamp today's launch date on any that don't have one.`)) {
+      return
+    }
+    setLaunching(true)
+    try {
+      await fetch(`/api/batches/${batch.id}/launch`, { method: "POST" })
+    } catch {
+      // ignore — refresh will reflect actual state
+    }
+    setLaunching(false)
+    router.refresh()
+  }
+
+  return (
+    <div className="flex items-center gap-2 ml-auto flex-wrap">
+      {transferMsg && (
+        <span className="text-xs text-gray-300 bg-zinc-800 border border-zinc-600 rounded-md px-2 py-0.5">
+          {transferMsg}
+        </span>
+      )}
+      <button
+        onClick={transferBatch}
+        disabled={transferring || pendingTransfers === 0}
+        title={
+          pendingTransfers === 0
+            ? allTransferred
+              ? "All ads in this batch are already transferred"
+              : "No ads in this batch are ready to transfer (need editor Drive link, Complete status, and ad number)"
+            : `Transfer ${pendingTransfers} ad${pendingTransfers === 1 ? "" : "s"} to Dropbox`
+        }
+        className="text-xs font-medium bg-bloom-dark text-white px-3 py-1 rounded-md hover:bg-bloom transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        {transferring
+          ? "Transferring..."
+          : allTransferred
+          ? "Transferred to Dropbox ✓"
+          : `Transfer Batch to Dropbox${pendingTransfers > 0 ? ` (${pendingTransfers})` : ""}`}
+      </button>
+      <button
+        onClick={launchBatch}
+        disabled={launching || allLaunched}
+        title={allLaunched ? "All ads in this batch are already Launched" : "Mark every ad in this batch as Launched"}
+        className="text-xs font-medium bg-pink-600 text-white px-3 py-1 rounded-md hover:bg-pink-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        {launching ? "Launching..." : allLaunched ? "Batch Launched ✓" : "Mark Batch as Launched"}
+      </button>
+    </div>
   )
 }
 

@@ -16,7 +16,7 @@ export default async function DashboardPage() {
       extraInfo: true, launchDate: true, result: true, learnings: true,
       spend: true, roas: true, stage: true, ceoStatus: true,
       projectType: true, style: true,
-      editorDriveLink: true,
+      editorDriveLink: true, editorStatus: true, transferStatus: true,
     }
 
     const batches = await prisma.batch.findMany({
