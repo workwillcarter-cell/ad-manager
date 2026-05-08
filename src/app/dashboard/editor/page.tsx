@@ -10,7 +10,10 @@ export default async function EditorPage() {
   if (!["CEO", "EDITOR"].includes(session.user.role)) redirect("/dashboard")
 
   const cards = await prisma.creative.findMany({
-    where: { editorStatus: { not: null }, kind: { not: "PAYMENT_CREDIT" } },
+    where: {
+      editorStatus: { not: null },
+      OR: [{ kind: null }, { kind: { not: "PAYMENT_CREDIT" } }],
+    },
     orderBy: { createdAt: "asc" },
     select: {
       id: true, concept: true, briefLink: true,

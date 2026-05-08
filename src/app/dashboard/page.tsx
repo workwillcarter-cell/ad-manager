@@ -23,7 +23,7 @@ export default async function DashboardPage() {
       orderBy: { createdAt: "desc" },
       include: {
         creatives: {
-          where: { kind: { not: "PAYMENT_CREDIT" } },
+          where: { OR: [{ kind: null }, { kind: { not: "PAYMENT_CREDIT" } }] },
           orderBy: { createdAt: "asc" },
           select: CREATIVE_SELECT,
         },
@@ -31,7 +31,10 @@ export default async function DashboardPage() {
     })
 
     const unassigned = await prisma.creative.findMany({
-      where: { batchId: null, kind: { not: "PAYMENT_CREDIT" } },
+      where: {
+        batchId: null,
+        OR: [{ kind: null }, { kind: { not: "PAYMENT_CREDIT" } }],
+      },
       orderBy: { createdAt: "asc" },
       select: CREATIVE_SELECT,
     })
