@@ -359,11 +359,20 @@ function CreativeRow({
   )
 }
 
+type TransferResult = {
+  id: string
+  adNumber: string | null
+  status: "transferred" | "skipped" | "failed"
+  reason?: string
+}
+
 function BatchActions({ batch }: { batch: Batch }) {
   const router = useRouter()
   const [transferring, setTransferring] = useState(false)
   const [launching, setLaunching] = useState(false)
   const [transferMsg, setTransferMsg] = useState<string | null>(null)
+  const [results, setResults] = useState<TransferResult[]>([])
+  const [showDetails, setShowDetails] = useState(false)
 
   const pendingTransfers = batch.creatives.filter(
     (c) => c.transferStatus !== "DONE" && c.editorStatus === "COMPLETE" && c.editorDriveLink && c.adNumber,
@@ -372,19 +381,30 @@ function BatchActions({ batch }: { batch: Batch }) {
     pendingTransfers === 0 && batch.creatives.some((c) => c.transferStatus === "DONE")
   const allLaunched = batch.creatives.every((c) => c.ceoStatus === "LAUNCHED")
 
+  const failedResults = results.filter((r) => r.status === "failed")
+
   async function transferBatch() {
     if (transferring) return
     setTransferring(true)
     setTransferMsg(null)
+    setResults([])
+    setShowDetails(false)
     try {
       const res = await fetch(`/api/batches/${batch.id}/transfer`, { method: "POST" })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
         setTransferMsg(json.error ?? `Transfer failed (${res.status})`)
       } else {
-        const { transferred, failed, skipped } = json as { transferred: number; failed: number; skipped: number }
+        const { transferred, failed, skipped, results: resultList } = json as {
+          transferred: number
+          failed: number
+          skipped: number
+          results: TransferResult[]
+        }
+        setResults(resultList ?? [])
         if (failed > 0) {
-          setTransferMsg(`Transferred ${transferred}, failed ${failed}, skipped ${skipped}. See per-ad status for details.`)
+          setTransferMsg(`Transferred ${transferred}, failed ${failed}, skipped ${skipped}.`)
+          setShowDetails(true)
         } else {
           setTransferMsg(`Transferred ${transferred} ad${transferred === 1 ? "" : "s"}${skipped ? `, skipped ${skipped}` : ""}.`)
         }
@@ -412,38 +432,61 @@ function BatchActions({ batch }: { batch: Batch }) {
   }
 
   return (
-    <div className="flex items-center gap-2 ml-auto flex-wrap">
-      {transferMsg && (
-        <span className="text-xs text-gray-300 bg-zinc-800 border border-zinc-600 rounded-md px-2 py-0.5">
-          {transferMsg}
-        </span>
+    <div className="flex flex-col items-end gap-1 ml-auto">
+      <div className="flex items-center gap-2 flex-wrap">
+        {transferMsg && (
+          <span className="text-xs text-gray-300 bg-zinc-800 border border-zinc-600 rounded-md px-2 py-0.5">
+            {transferMsg}
+          </span>
+        )}
+        {failedResults.length > 0 && (
+          <button
+            onClick={() => setShowDetails((v) => !v)}
+            className="text-xs text-blue-300 hover:text-blue-200 underline"
+          >
+            {showDetails ? "Hide details" : `Show ${failedResults.length} failure${failedResults.length === 1 ? "" : "s"}`}
+          </button>
+        )}
+        <button
+          onClick={transferBatch}
+          disabled={transferring || pendingTransfers === 0}
+          title={
+            pendingTransfers === 0
+              ? allTransferred
+                ? "All ads in this batch are already transferred"
+                : "No ads in this batch are ready to transfer (need editor Drive link, Complete status, and ad number)"
+              : `Transfer ${pendingTransfers} ad${pendingTransfers === 1 ? "" : "s"} to Dropbox`
+          }
+          className="text-xs font-medium bg-bloom-dark text-white px-3 py-1 rounded-md hover:bg-bloom transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {transferring
+            ? "Transferring..."
+            : allTransferred
+            ? "Transferred to Dropbox ✓"
+            : `Transfer Batch to Dropbox${pendingTransfers > 0 ? ` (${pendingTransfers})` : ""}`}
+        </button>
+        <button
+          onClick={launchBatch}
+          disabled={launching || allLaunched}
+          title={allLaunched ? "All ads in this batch are already Launched" : "Mark every ad in this batch as Launched"}
+          className="text-xs font-medium bg-pink-600 text-white px-3 py-1 rounded-md hover:bg-pink-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {launching ? "Launching..." : allLaunched ? "Batch Launched ✓" : "Mark Batch as Launched"}
+        </button>
+      </div>
+      {showDetails && failedResults.length > 0 && (
+        <div className="w-full max-w-2xl bg-zinc-950 border border-red-900/60 rounded-md px-3 py-2 mt-1">
+          <p className="text-xs text-red-300 font-semibold mb-1">Failures:</p>
+          <ul className="text-xs text-gray-200 space-y-0.5 font-mono">
+            {failedResults.map((r) => (
+              <li key={r.id}>
+                <span className="text-gray-400">{r.adNumber ?? r.id.slice(0, 6)}:</span>{" "}
+                <span className="text-red-300">{r.reason ?? "Unknown error"}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
-      <button
-        onClick={transferBatch}
-        disabled={transferring || pendingTransfers === 0}
-        title={
-          pendingTransfers === 0
-            ? allTransferred
-              ? "All ads in this batch are already transferred"
-              : "No ads in this batch are ready to transfer (need editor Drive link, Complete status, and ad number)"
-            : `Transfer ${pendingTransfers} ad${pendingTransfers === 1 ? "" : "s"} to Dropbox`
-        }
-        className="text-xs font-medium bg-bloom-dark text-white px-3 py-1 rounded-md hover:bg-bloom transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        {transferring
-          ? "Transferring..."
-          : allTransferred
-          ? "Transferred to Dropbox ✓"
-          : `Transfer Batch to Dropbox${pendingTransfers > 0 ? ` (${pendingTransfers})` : ""}`}
-      </button>
-      <button
-        onClick={launchBatch}
-        disabled={launching || allLaunched}
-        title={allLaunched ? "All ads in this batch are already Launched" : "Mark every ad in this batch as Launched"}
-        className="text-xs font-medium bg-pink-600 text-white px-3 py-1 rounded-md hover:bg-pink-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        {launching ? "Launching..." : allLaunched ? "Batch Launched ✓" : "Mark Batch as Launched"}
-      </button>
     </div>
   )
 }
