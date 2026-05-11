@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   const result = scope === "aig"
     ? await prisma.creative.updateMany({
         where: {
-          aigStatus: { in: ["COMPLETE", "PAID"] },
+          aigStatus: { in: ["COMPLETE", "ADDED_TO_EDITOR", "PAID"] },
           aigPaid: false,
           OR: [{ kind: null }, { kind: { not: "PAYMENT_CREDIT" } }],
         },

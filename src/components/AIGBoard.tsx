@@ -130,7 +130,7 @@ export default function AIGBoard({ cards: initialCards, userRole }: { cards: Car
   const isCEO = userRole === "CEO"
   const unpaidCards = cards.filter(
     (c) => c.kind !== "PAYMENT_CREDIT"
-      && (c.aigStatus === "COMPLETE" || c.aigStatus === "PAID")
+      && (c.aigStatus === "COMPLETE" || c.aigStatus === "ADDED_TO_EDITOR" || c.aigStatus === "PAID")
       && !c.aigPaid,
   )
   const unpaidTotal = unpaidCards.reduce((sum, c) => sum + aigAmountFor(c), 0)
@@ -316,7 +316,7 @@ function AIGCard({ card, userRole, isDragging, onClick, onDragStart, onDragEnd, 
 
   const showPaidPill = userRole === "CEO"
     && !isPaymentCredit
-    && (card.aigStatus === "COMPLETE" || card.aigStatus === "PAID")
+    && (card.aigStatus === "COMPLETE" || card.aigStatus === "ADDED_TO_EDITOR" || card.aigStatus === "PAID")
   const aigAmount = aigAmountFor(card)
 
   async function togglePaid(e: React.MouseEvent) {
