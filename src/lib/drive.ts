@@ -2,7 +2,12 @@ import { google } from "googleapis"
 import type { Readable } from "node:stream"
 import { prisma } from "@/lib/prisma"
 
-const SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+// drive.readonly is enough for the existing Dropbox transfer; drive.file lets us
+// create new folders/files (e.g. brief folders) and manage them after creation.
+const SCOPES = [
+  "https://www.googleapis.com/auth/drive.readonly",
+  "https://www.googleapis.com/auth/drive.file",
+]
 
 function makeOAuthClient(redirectUri: string) {
   return new google.auth.OAuth2(
@@ -98,4 +103,20 @@ export async function downloadDriveFile(fileId: string): Promise<Readable> {
 export function getFileExtension(name: string): string {
   const m = name.match(/\.([^.]+)$/)
   return m ? m[1].toLowerCase() : "mp4"
+}
+
+export async function createDriveFolder(name: string, parentFolderId: string): Promise<{ id: string; url: string }> {
+  const drive = await getAuthedDrive()
+  const res = await drive.files.create({
+    requestBody: {
+      name,
+      mimeType: "application/vnd.google-apps.folder",
+      parents: [parentFolderId],
+    },
+    fields: "id",
+    supportsAllDrives: true,
+  })
+  const id = res.data.id
+  if (!id) throw new Error("Drive returned no folder id")
+  return { id, url: `https://drive.google.com/drive/folders/${id}` }
 }
