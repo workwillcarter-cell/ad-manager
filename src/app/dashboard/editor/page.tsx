@@ -19,6 +19,7 @@ export default async function EditorPage() {
       id: true, concept: true, briefLink: true,
       editorDriveLink: true, editorNotes: true, editorStatus: true,
       editorNeedsRevision: true, editorRevisionDetails: true, editorRevisionComplete: true,
+      editorPaid: true, editorPaymentAmount: true,
       usedInAd: true, adNumber: true,
       transferStatus: true, transferError: true, transferredAt: true, dropboxPath: true,
       updatedAt: true,

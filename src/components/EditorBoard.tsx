@@ -14,6 +14,8 @@ type Card = {
   editorNeedsRevision: boolean
   editorRevisionDetails: string | null
   editorRevisionComplete: boolean
+  editorPaid: boolean
+  editorPaymentAmount: number | null
   usedInAd: string | null
   adNumber: string | null
   transferStatus: string | null
@@ -52,6 +54,15 @@ const EDITOR_COLUMNS = [
 ]
 
 const NEWEST_FIRST_EDITOR = new Set(["COMPLETE", "PAID"])
+
+// Bloomacare: default $10/project, overridable per card.
+const EDITOR_DEFAULT_AMOUNT = 10
+
+function editorAmountFor(card: { editorPaymentAmount: number | null }): number {
+  return card.editorPaymentAmount !== null && card.editorPaymentAmount !== undefined
+    ? card.editorPaymentAmount
+    : EDITOR_DEFAULT_AMOUNT
+}
 
 export default function EditorBoard({ cards: initialCards, userRole }: { cards: Card[]; userRole: Role }) {
   const router = useRouter()
@@ -99,6 +110,31 @@ export default function EditorBoard({ cards: initialCards, userRole }: { cards: 
     await performMove(id, colId)
   }
 
+  const isCEO = userRole === "CEO"
+  const unpaidCards = cards.filter(
+    (c) => (c.editorStatus === "COMPLETE" || c.editorStatus === "PAID") && !c.editorPaid,
+  )
+  const unpaidTotal = unpaidCards.reduce((sum, c) => sum + editorAmountFor(c), 0)
+  const [markingAllPaid, setMarkingAllPaid] = useState(false)
+
+  async function markAllPaid() {
+    if (unpaidCards.length === 0 || markingAllPaid) return
+    if (!confirm(`Mark all ${unpaidCards.length} unpaid editor project${unpaidCards.length === 1 ? "" : "s"} as paid? ($${unpaidTotal} total)`)) return
+    setMarkingAllPaid(true)
+    const unpaidIds = new Set(unpaidCards.map((c) => c.id))
+    setCards((prev) => prev.map((c) => unpaidIds.has(c.id) ? { ...c, editorPaid: true } : c))
+    try {
+      await fetch("/api/creatives/mark-paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope: "editor" }),
+      })
+      router.refresh()
+    } finally {
+      setMarkingAllPaid(false)
+    }
+  }
+
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-6">
@@ -106,7 +142,29 @@ export default function EditorBoard({ cards: initialCards, userRole }: { cards: 
           <h1 className="text-2xl font-bold text-white">Editor Board</h1>
           <p className="text-sm text-zinc-400 mt-0.5">Editing pipeline</p>
         </div>
-        <div className="text-sm text-zinc-400">{cards.length} projects</div>
+        <div className="flex items-center gap-4">
+          {isCEO && (
+            <div className="flex items-center gap-2">
+              <div className="text-sm flex items-baseline gap-2 px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700">
+                <span className={unpaidTotal > 0 ? "text-amber-300 font-semibold" : "text-zinc-400 font-semibold"}>
+                  ${unpaidTotal} unpaid
+                </span>
+                <span className="text-zinc-500 text-xs">({unpaidCards.length})</span>
+              </div>
+              {unpaidCards.length > 0 && (
+                <button
+                  onClick={markAllPaid}
+                  disabled={markingAllPaid}
+                  className="text-xs font-medium px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50"
+                  title={`Mark all ${unpaidCards.length} unpaid as paid`}
+                >
+                  {markingAllPaid ? "Marking…" : "Mark all paid"}
+                </button>
+              )}
+            </div>
+          )}
+          <div className="text-sm text-zinc-400">{cards.length} projects</div>
+        </div>
       </div>
 
       <div className="overflow-x-auto pb-1">
@@ -133,10 +191,12 @@ export default function EditorBoard({ cards: initialCards, userRole }: { cards: 
                     <EditorCard
                       key={card.id}
                       card={card}
+                      userRole={userRole}
                       isDragging={draggingId === card.id}
                       onClick={() => setSelected(card)}
                       onDragStart={() => { dragIdRef.current = card.id; setDraggingId(card.id) }}
                       onDragEnd={() => { setDraggingId(null); setDragOverColId(null); dragIdRef.current = null }}
+                      onCardUpdate={(updated) => setCards((prev) => prev.map((c) => c.id === updated.id ? updated : c))}
                     />
                   ))}
                   {colCards.length === 0 && (
@@ -194,15 +254,34 @@ export default function EditorBoard({ cards: initialCards, userRole }: { cards: 
   )
 }
 
-function EditorCard({ card, isDragging, onClick, onDragStart, onDragEnd }: {
+function EditorCard({ card, userRole, isDragging, onClick, onDragStart, onDragEnd, onCardUpdate }: {
   card: Card
+  userRole: Role
   isDragging: boolean
   onClick: () => void
   onDragStart: () => void
   onDragEnd: () => void
+  onCardUpdate: (updated: Card) => void
 }) {
+  const router = useRouter()
   const revisions = parseRevisions(card.editorRevisionDetails)
   const openRevisions = revisions.filter((r) => !r.complete)
+
+  const showPaidPill = userRole === "CEO"
+    && (card.editorStatus === "COMPLETE" || card.editorStatus === "PAID")
+  const editorAmount = editorAmountFor(card)
+
+  async function togglePaid(e: React.MouseEvent) {
+    e.stopPropagation()
+    const next = !card.editorPaid
+    onCardUpdate({ ...card, editorPaid: next })
+    await fetch(`/api/creatives/${card.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ editorPaid: next }),
+    })
+    router.refresh()
+  }
 
   return (
     <div
@@ -240,6 +319,20 @@ function EditorCard({ card, isDragging, onClick, onDragStart, onDragEnd }: {
       {card.usedInAd && (
         <div className="mt-2 text-xs text-purple-600 font-medium">Used: {card.usedInAd}</div>
       )}
+
+      {showPaidPill && (
+        <button
+          onClick={togglePaid}
+          title={card.editorPaid ? "Mark as unpaid" : "Mark as paid"}
+          className={`mt-2 inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium transition-colors ${
+            card.editorPaid
+              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+              : "bg-amber-100 text-amber-800 hover:bg-amber-200"
+          }`}
+        >
+          {card.editorPaid ? `✓ Paid $${editorAmount}` : `$${editorAmount} unpaid`}
+        </button>
+      )}
     </div>
   )
 }
@@ -254,9 +347,10 @@ function CardModal({ card, userRole, onClose, onUpdate, onMarkComplete }: {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [fields, setFields] = useState({
-    editorDriveLink: card.editorDriveLink ?? "",
-    editorNotes:     card.editorNotes ?? "",
-    usedInAd:        card.usedInAd ?? "",
+    editorDriveLink:     card.editorDriveLink ?? "",
+    editorNotes:         card.editorNotes ?? "",
+    usedInAd:            card.usedInAd ?? "",
+    editorPaymentAmount: card.editorPaymentAmount !== null && card.editorPaymentAmount !== undefined ? String(card.editorPaymentAmount) : "",
   })
   const [revisions, setRevisions] = useState<RevisionItem[]>(() => parseRevisions(card.editorRevisionDetails))
   const [newRevText, setNewRevText] = useState("")
@@ -285,6 +379,7 @@ function CardModal({ card, userRole, onClose, onUpdate, onMarkComplete }: {
   async function saveFields() {
     const serialized = serializeRevisions(revisions)
     const allComplete = revisions.length > 0 && revisions.every((r) => r.complete)
+    const nextEditorAmount = fields.editorPaymentAmount.trim() === "" ? null : Number(fields.editorPaymentAmount)
     await patch({
       editorDriveLink:        fields.editorDriveLink || null,
       editorNotes:            fields.editorNotes || null,
@@ -292,6 +387,7 @@ function CardModal({ card, userRole, onClose, onUpdate, onMarkComplete }: {
       editorNeedsRevision:    revisions.length > 0,
       editorRevisionDetails:  serialized,
       editorRevisionComplete: allComplete,
+      ...(isCEO && { editorPaymentAmount: nextEditorAmount }),
     })
     onUpdate({
       ...card,
@@ -301,6 +397,7 @@ function CardModal({ card, userRole, onClose, onUpdate, onMarkComplete }: {
       editorNeedsRevision:    revisions.length > 0,
       editorRevisionDetails:  serialized,
       editorRevisionComplete: allComplete,
+      ...(isCEO && { editorPaymentAmount: nextEditorAmount }),
     })
     onClose()
   }
@@ -392,6 +489,27 @@ function CardModal({ card, userRole, onClose, onUpdate, onMarkComplete }: {
               className="w-full text-sm text-gray-900 border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-bloom"
             />
           </Field>
+
+          {isCEO && (
+            <Field label="Editor Payment (USD)">
+              <div className="flex items-center gap-2">
+                <div className="relative w-32">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">$</span>
+                  <input
+                    type="number"
+                    step="any"
+                    value={fields.editorPaymentAmount}
+                    onChange={(e) => setFields((f) => ({ ...f, editorPaymentAmount: e.target.value }))}
+                    placeholder={String(EDITOR_DEFAULT_AMOUNT)}
+                    className="w-full text-sm text-gray-900 border border-gray-300 rounded-lg pl-7 pr-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-bloom"
+                  />
+                </div>
+                <span className="text-xs text-gray-500">
+                  Leave blank to use the default (${EDITOR_DEFAULT_AMOUNT}).
+                </span>
+              </div>
+            </Field>
+          )}
 
           {/* Revisions */}
           <div className="border border-gray-200 rounded-xl p-4 space-y-3">

@@ -33,7 +33,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     aigStatus, projectType, style, aigNotes, needsRevision, revisionDetails, revisionComplete,
     editorStatus, editorNotes, editorNeedsRevision, editorRevisionDetails, editorRevisionComplete,
     editorDriveLink, usedInAd, paymentAmount,
+    aigPaid, aigPaymentAmount, editorPaid, editorPaymentAmount,
   } = body
+
+  // Payment tracking fields are CEO-only
+  const touchesPayment =
+    aigPaid !== undefined || aigPaymentAmount !== undefined ||
+    editorPaid !== undefined || editorPaymentAmount !== undefined
+  if (touchesPayment && session.user.role !== "CEO") {
+    return NextResponse.json({ error: "Only CEO can change payment tracking" }, { status: 403 })
+  }
 
   const existingKind = await prisma.creative.findUnique({ where: { id }, select: { kind: true } })
   const isPaymentCredit = existingKind?.kind === "PAYMENT_CREDIT"
@@ -150,6 +159,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(editorDriveLink !== undefined && { editorDriveLink: editorDriveLink || null }),
       ...(usedInAd !== undefined && { usedInAd: usedInAd || null }),
       ...(paymentAmount !== undefined && { paymentAmount: paymentAmount !== null ? Number(paymentAmount) : null }),
+      ...(aigPaid !== undefined && { aigPaid: Boolean(aigPaid) }),
+      ...(aigPaymentAmount !== undefined && { aigPaymentAmount: aigPaymentAmount !== null && aigPaymentAmount !== "" ? Number(aigPaymentAmount) : null }),
+      ...(editorPaid !== undefined && { editorPaid: Boolean(editorPaid) }),
+      ...(editorPaymentAmount !== undefined && { editorPaymentAmount: editorPaymentAmount !== null && editorPaymentAmount !== "" ? Number(editorPaymentAmount) : null }),
       ...(batchId !== undefined && { batchId }),
       ...(autoLaunchDate !== undefined && { launchDate: autoLaunchDate }),
       ...(autoAigStatus !== undefined && { aigStatus: autoAigStatus }),

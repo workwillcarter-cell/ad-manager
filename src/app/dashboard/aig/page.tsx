@@ -17,6 +17,7 @@ export default async function AIGPage() {
       projectType: true, aigNotes: true, aigStatus: true,
       needsRevision: true, revisionDetails: true, revisionComplete: true,
       kind: true, paymentAmount: true,
+      aigPaid: true, aigPaymentAmount: true,
       updatedAt: true,
       batch: { select: { name: true } },
     },

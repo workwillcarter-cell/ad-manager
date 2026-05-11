@@ -81,6 +81,8 @@ model Creative {
   needsRevision    Boolean  @default(false)
   revisionDetails  String?
   revisionComplete Boolean  @default(false)
+  aigPaid          Boolean  @default(false)
+  aigPaymentAmount Float?   // null = use type default ($6 / $18)
 
   editorStatus           String?
   editorNotes            String?
@@ -89,6 +91,8 @@ model Creative {
   editorRevisionComplete Boolean  @default(false)
   editorDriveLink        String?
   usedInAd               String?
+  editorPaid             Boolean  @default(false)
+  editorPaymentAmount    Float?   // null = use $10 default
 
   transferStatus String?
   transferError  String?

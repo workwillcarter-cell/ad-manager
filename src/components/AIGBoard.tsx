@@ -17,8 +17,25 @@ type Card = {
   revisionComplete: boolean
   kind: string | null
   paymentAmount: number | null
+  aigPaid: boolean
+  aigPaymentAmount: number | null
   updatedAt: string
   batchName: string | null
+}
+
+// Default AIG payment per projectType. UGC, Clip Refresh, No Gen don't normally
+// reach the AIG board; if they do, fall back to 0 until the CEO sets a value.
+const AIG_DEFAULTS: Record<string, number> = {
+  "Script Shotlist": 6,
+  "Image":           6,
+  "Cartoon":        18,
+  "Perfect UGC":    18,
+  "UGC":            18,
+}
+
+function aigAmountFor(card: { aigPaymentAmount: number | null; projectType: string | null }): number {
+  if (card.aigPaymentAmount !== null && card.aigPaymentAmount !== undefined) return card.aigPaymentAmount
+  return card.projectType ? (AIG_DEFAULTS[card.projectType] ?? 0) : 0
 }
 
 type RevisionItem = { id: string; text: string; complete: boolean }
@@ -110,6 +127,33 @@ export default function AIGBoard({ cards: initialCards, userRole }: { cards: Car
     await performMove(id, colId)
   }
 
+  const isCEO = userRole === "CEO"
+  const unpaidCards = cards.filter(
+    (c) => c.kind !== "PAYMENT_CREDIT"
+      && (c.aigStatus === "COMPLETE" || c.aigStatus === "PAID")
+      && !c.aigPaid,
+  )
+  const unpaidTotal = unpaidCards.reduce((sum, c) => sum + aigAmountFor(c), 0)
+  const [markingAllPaid, setMarkingAllPaid] = useState(false)
+
+  async function markAllPaid() {
+    if (unpaidCards.length === 0 || markingAllPaid) return
+    if (!confirm(`Mark all ${unpaidCards.length} unpaid AIG project${unpaidCards.length === 1 ? "" : "s"} as paid? ($${unpaidTotal} total)`)) return
+    setMarkingAllPaid(true)
+    const unpaidIds = new Set(unpaidCards.map((c) => c.id))
+    setCards((prev) => prev.map((c) => unpaidIds.has(c.id) ? { ...c, aigPaid: true } : c))
+    try {
+      await fetch("/api/creatives/mark-paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope: "aig" }),
+      })
+      router.refresh()
+    } finally {
+      setMarkingAllPaid(false)
+    }
+  }
+
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-6">
@@ -117,7 +161,29 @@ export default function AIGBoard({ cards: initialCards, userRole }: { cards: Car
           <h1 className="text-2xl font-bold text-white">AIG Board</h1>
           <p className="text-sm text-zinc-400 mt-0.5">AI generation pipeline</p>
         </div>
-        <div className="text-sm text-zinc-400">{cards.length} projects</div>
+        <div className="flex items-center gap-4">
+          {isCEO && (
+            <div className="flex items-center gap-2">
+              <div className="text-sm flex items-baseline gap-2 px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700">
+                <span className={unpaidTotal > 0 ? "text-amber-300 font-semibold" : "text-zinc-400 font-semibold"}>
+                  ${unpaidTotal} unpaid
+                </span>
+                <span className="text-zinc-500 text-xs">({unpaidCards.length})</span>
+              </div>
+              {unpaidCards.length > 0 && (
+                <button
+                  onClick={markAllPaid}
+                  disabled={markingAllPaid}
+                  className="text-xs font-medium px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50"
+                  title={`Mark all ${unpaidCards.length} unpaid as paid`}
+                >
+                  {markingAllPaid ? "Marking…" : "Mark all paid"}
+                </button>
+              )}
+            </div>
+          )}
+          <div className="text-sm text-zinc-400">{cards.length} projects</div>
+        </div>
       </div>
 
       <div className="overflow-x-auto pb-1">
@@ -152,10 +218,12 @@ export default function AIGBoard({ cards: initialCards, userRole }: { cards: Car
                     <AIGCard
                       key={card.id}
                       card={card}
+                      userRole={userRole}
                       isDragging={draggingId === card.id}
                       onClick={() => setSelected(card)}
                       onDragStart={() => { dragIdRef.current = card.id; setDraggingId(card.id) }}
                       onDragEnd={() => { setDraggingId(null); setDragOverColId(null); dragIdRef.current = null }}
+                      onCardUpdate={(updated) => setCards((prev) => prev.map((c) => c.id === updated.id ? updated : c))}
                     />
                   ))}
                   {colCards.length === 0 && col.id !== "COMPLETE" && (
@@ -232,16 +300,36 @@ function formatPHP(n: number | null): string {
   return `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-function AIGCard({ card, isDragging, onClick, onDragStart, onDragEnd }: {
+function AIGCard({ card, userRole, isDragging, onClick, onDragStart, onDragEnd, onCardUpdate }: {
   card: Card
+  userRole: Role
   isDragging: boolean
   onClick: () => void
   onDragStart: () => void
   onDragEnd: () => void
+  onCardUpdate: (updated: Card) => void
 }) {
+  const router = useRouter()
   const revisions = parseRevisions(card.revisionDetails)
   const openRevisions = revisions.filter((r) => !r.complete)
   const isPaymentCredit = card.kind === "PAYMENT_CREDIT"
+
+  const showPaidPill = userRole === "CEO"
+    && !isPaymentCredit
+    && (card.aigStatus === "COMPLETE" || card.aigStatus === "PAID")
+  const aigAmount = aigAmountFor(card)
+
+  async function togglePaid(e: React.MouseEvent) {
+    e.stopPropagation()
+    const next = !card.aigPaid
+    onCardUpdate({ ...card, aigPaid: next })
+    await fetch(`/api/creatives/${card.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ aigPaid: next }),
+    })
+    router.refresh()
+  }
 
   if (isPaymentCredit) {
     return (
@@ -315,6 +403,20 @@ function AIGCard({ card, isDragging, onClick, onDragStart, onDragEnd }: {
       )}
       {card.needsRevision && openRevisions.length === 0 && revisions.length > 0 && (
         <div className="mt-2 text-xs text-green-600 font-medium">✓ All revisions complete</div>
+      )}
+
+      {showPaidPill && (
+        <button
+          onClick={togglePaid}
+          title={card.aigPaid ? "Mark as unpaid" : "Mark as paid"}
+          className={`mt-2 inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium transition-colors ${
+            card.aigPaid
+              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+              : "bg-amber-100 text-amber-800 hover:bg-amber-200"
+          }`}
+        >
+          {card.aigPaid ? `✓ Paid $${aigAmount}` : `$${aigAmount} unpaid`}
+        </button>
       )}
     </div>
   )
@@ -601,9 +703,10 @@ function CardModal({ card, userRole, onClose, onUpdate, onMoveToEditor }: {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [fields, setFields] = useState({
-    projectType:    card.projectType ?? "",
-    finishedAdLink: card.finishedAdLink ?? "",
-    aigNotes:       card.aigNotes ?? "",
+    projectType:      card.projectType ?? "",
+    finishedAdLink:   card.finishedAdLink ?? "",
+    aigNotes:         card.aigNotes ?? "",
+    aigPaymentAmount: card.aigPaymentAmount !== null && card.aigPaymentAmount !== undefined ? String(card.aigPaymentAmount) : "",
   })
   const [revisions, setRevisions] = useState<RevisionItem[]>(() => parseRevisions(card.revisionDetails))
   const [newRevText, setNewRevText] = useState("")
@@ -633,6 +736,7 @@ function CardModal({ card, userRole, onClose, onUpdate, onMoveToEditor }: {
     const serialized = serializeRevisions(revisions)
     const hasOpenRevisions = revisions.some((r) => !r.complete)
     const allComplete = revisions.length > 0 && revisions.every((r) => r.complete)
+    const nextAigAmount = fields.aigPaymentAmount.trim() === "" ? null : Number(fields.aigPaymentAmount)
     await patch({
       projectType:      fields.projectType || null,
       finishedAdLink:   fields.finishedAdLink || null,
@@ -640,6 +744,7 @@ function CardModal({ card, userRole, onClose, onUpdate, onMoveToEditor }: {
       needsRevision:    revisions.length > 0,
       revisionDetails:  serialized,
       revisionComplete: allComplete,
+      ...(isCEO && { aigPaymentAmount: nextAigAmount }),
     })
     onUpdate({
       ...card,
@@ -649,6 +754,7 @@ function CardModal({ card, userRole, onClose, onUpdate, onMoveToEditor }: {
       needsRevision:    revisions.length > 0,
       revisionDetails:  serialized,
       revisionComplete: allComplete,
+      ...(isCEO && { aigPaymentAmount: nextAigAmount }),
     })
     onClose()
     void hasOpenRevisions
@@ -755,6 +861,27 @@ function CardModal({ card, userRole, onClose, onUpdate, onMoveToEditor }: {
               className="w-full text-sm text-gray-900 border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-bloom resize-none"
             />
           </Field>
+
+          {isCEO && (
+            <Field label="AIG Payment (USD)">
+              <div className="flex items-center gap-2">
+                <div className="relative w-32">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">$</span>
+                  <input
+                    type="number"
+                    step="any"
+                    value={fields.aigPaymentAmount}
+                    onChange={(e) => setFields((f) => ({ ...f, aigPaymentAmount: e.target.value }))}
+                    placeholder={String(fields.projectType ? (AIG_DEFAULTS[fields.projectType] ?? 0) : 0)}
+                    className="w-full text-sm text-gray-900 border border-gray-300 rounded-lg pl-7 pr-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-bloom"
+                  />
+                </div>
+                <span className="text-xs text-gray-500">
+                  Leave blank to use the default for {fields.projectType || "this type"} (${fields.projectType ? (AIG_DEFAULTS[fields.projectType] ?? 0) : 0}).
+                </span>
+              </div>
+            </Field>
+          )}
 
           {/* Revisions */}
           <div className="border border-gray-200 rounded-xl p-4 space-y-3">
