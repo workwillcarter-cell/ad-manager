@@ -19,7 +19,7 @@ export default async function DashboardPage() {
       editorDriveLink: true, editorStatus: true, transferStatus: true,
     }
 
-    const batches = await prisma.batch.findMany({
+    const batchesRaw = await prisma.batch.findMany({
       orderBy: { createdAt: "desc" },
       include: {
         creatives: {
@@ -29,6 +29,15 @@ export default async function DashboardPage() {
         },
       },
     })
+
+    // Within each batch: unlaunched on top, LAUNCHED at the bottom.
+    // Array.sort is stable, so createdAt order is preserved within each group.
+    const batches = batchesRaw.map((b) => ({
+      ...b,
+      creatives: [...b.creatives].sort(
+        (a, z) => (a.ceoStatus === "LAUNCHED" ? 1 : 0) - (z.ceoStatus === "LAUNCHED" ? 1 : 0),
+      ),
+    }))
 
     const unassigned = await prisma.creative.findMany({
       where: {
