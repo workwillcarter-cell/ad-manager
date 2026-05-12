@@ -17,11 +17,19 @@ export async function runTransfer(creativeId: string) {
   const creative = await prisma.creative.findUnique({ where: { id: creativeId } })
   if (!creative) throw new Error("Creative not found")
   if (!creative.adNumber) throw new Error("No ad number assigned yet")
-  if (!creative.editorDriveLink) throw new Error("No editor Drive link on this ad")
-  if (creative.editorStatus !== "COMPLETE" && creative.editorStatus !== "PAID") throw new Error("Editor hasn't marked this ad Complete")
 
-  const folderId = extractDriveFolderId(creative.editorDriveLink)
-  if (!folderId) throw new Error("Couldn't read folder ID from editor's Drive link")
+  const isImage = creative.projectType === "Image"
+  const sourceLink = isImage ? creative.finishedAdLink : creative.editorDriveLink
+
+  if (!sourceLink) {
+    throw new Error(isImage ? "No AIG Completed Drive link on this ad" : "No editor Drive link on this ad")
+  }
+  if (!isImage && creative.editorStatus !== "COMPLETE" && creative.editorStatus !== "PAID") {
+    throw new Error("Editor hasn't marked this ad Complete")
+  }
+
+  const folderId = extractDriveFolderId(sourceLink)
+  if (!folderId) throw new Error(isImage ? "Couldn't read folder ID from AIG's Completed Drive link" : "Couldn't read folder ID from editor's Drive link")
 
   const adName = creative.adNumber
 

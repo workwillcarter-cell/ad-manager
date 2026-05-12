@@ -44,16 +44,20 @@ export async function POST(
       results.push({ id: creative.id, adNumber: creative.adNumber, status: "skipped", reason: "Transfer already in progress" })
       continue
     }
-    const editorReady = creative.editorStatus === "COMPLETE" || creative.editorStatus === "PAID"
-    if (!creative.editorDriveLink || !editorReady || !creative.adNumber) {
+    const isImage = creative.projectType === "Image"
+    const sourceLink = isImage ? creative.finishedAdLink : creative.editorDriveLink
+    const editorReady = isImage || creative.editorStatus === "COMPLETE" || creative.editorStatus === "PAID"
+    if (!sourceLink || !editorReady || !creative.adNumber) {
       results.push({
         id: creative.id,
         adNumber: creative.adNumber,
         status: "skipped",
         reason: !creative.adNumber
           ? "No ad number assigned yet"
-          : !creative.editorDriveLink
-          ? "No editor Drive link on this ad"
+          : !sourceLink
+          ? isImage
+            ? "No AIG Completed Drive link on this ad"
+            : "No editor Drive link on this ad"
           : "Editor hasn't marked this ad Complete or Paid",
       })
       continue

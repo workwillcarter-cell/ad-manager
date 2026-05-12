@@ -19,6 +19,7 @@ type Creative = {
   ceoStatus: string | null
   projectType: string | null
   style: string | null
+  finishedAdLink: string | null
   editorDriveLink: string | null
   editorStatus: string | null
   transferStatus: string | null
@@ -371,6 +372,11 @@ function pendingReason(c: Creative): string {
   if (c.transferStatus === "IN_PROGRESS") return "Stuck mid-transfer — click Reset to allow retry"
   if (c.transferStatus === "FAILED") return c.transferError ? `Failed: ${c.transferError}` : "Failed (no error recorded)"
   if (!c.adNumber) return "No ad number assigned yet"
+  const isImage = c.projectType === "Image"
+  if (isImage) {
+    if (!c.finishedAdLink) return "AIG hasn't shared a Completed Drive link"
+    return "Ready to transfer (never attempted)"
+  }
   if (!c.editorDriveLink) return "Editor hasn't shared a Drive link"
   if (c.editorStatus !== "COMPLETE" && c.editorStatus !== "PAID") return "Editor hasn't marked Complete"
   return "Ready to transfer (never attempted)"
@@ -388,9 +394,11 @@ function BatchActions({ batch }: { batch: Batch }) {
   const total = batch.creatives.length
   const doneCreatives = batch.creatives.filter((c) => c.transferStatus === "DONE")
   const pendingCreatives = batch.creatives.filter((c) => c.transferStatus !== "DONE")
-  const readyToTransfer = pendingCreatives.filter(
-    (c) => (c.editorStatus === "COMPLETE" || c.editorStatus === "PAID") && c.editorDriveLink && c.adNumber && c.transferStatus !== "IN_PROGRESS",
-  )
+  const readyToTransfer = pendingCreatives.filter((c) => {
+    if (!c.adNumber || c.transferStatus === "IN_PROGRESS") return false
+    if (c.projectType === "Image") return Boolean(c.finishedAdLink)
+    return (c.editorStatus === "COMPLETE" || c.editorStatus === "PAID") && Boolean(c.editorDriveLink)
+  })
   const readyCount = readyToTransfer.length
   const doneCount = doneCreatives.length
   const pendingCount = pendingCreatives.length
