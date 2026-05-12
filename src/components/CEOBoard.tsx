@@ -22,6 +22,7 @@ type Creative = {
   editorDriveLink: string | null
   editorStatus: string | null
   transferStatus: string | null
+  transferError: string | null
 }
 
 type Batch = {
@@ -366,6 +367,15 @@ type TransferResult = {
   reason?: string
 }
 
+function pendingReason(c: Creative): string {
+  if (c.transferStatus === "IN_PROGRESS") return "Stuck mid-transfer — click Reset to allow retry"
+  if (c.transferStatus === "FAILED") return c.transferError ? `Failed: ${c.transferError}` : "Failed (no error recorded)"
+  if (!c.adNumber) return "No ad number assigned yet"
+  if (!c.editorDriveLink) return "Editor hasn't shared a Drive link"
+  if (c.editorStatus !== "COMPLETE") return "Editor hasn't marked Complete"
+  return "Ready to transfer (never attempted)"
+}
+
 function BatchActions({ batch }: { batch: Batch }) {
   const router = useRouter()
   const [transferring, setTransferring] = useState(false)
@@ -373,12 +383,18 @@ function BatchActions({ batch }: { batch: Batch }) {
   const [transferMsg, setTransferMsg] = useState<string | null>(null)
   const [results, setResults] = useState<TransferResult[]>([])
   const [showDetails, setShowDetails] = useState(false)
+  const [showPending, setShowPending] = useState(false)
 
-  const pendingTransfers = batch.creatives.filter(
-    (c) => c.transferStatus !== "DONE" && c.editorStatus === "COMPLETE" && c.editorDriveLink && c.adNumber,
-  ).length
-  const allTransferred =
-    pendingTransfers === 0 && batch.creatives.some((c) => c.transferStatus === "DONE")
+  const total = batch.creatives.length
+  const doneCreatives = batch.creatives.filter((c) => c.transferStatus === "DONE")
+  const pendingCreatives = batch.creatives.filter((c) => c.transferStatus !== "DONE")
+  const readyToTransfer = pendingCreatives.filter(
+    (c) => c.editorStatus === "COMPLETE" && c.editorDriveLink && c.adNumber && c.transferStatus !== "IN_PROGRESS",
+  )
+  const readyCount = readyToTransfer.length
+  const doneCount = doneCreatives.length
+  const pendingCount = pendingCreatives.length
+  const allTransferred = total > 0 && doneCount === total
   const allLaunched = batch.creatives.every((c) => c.ceoStatus === "LAUNCHED")
 
   const failedResults = results.filter((r) => r.status === "failed")
@@ -434,6 +450,24 @@ function BatchActions({ batch }: { batch: Batch }) {
   return (
     <div className="flex flex-col items-end gap-1 ml-auto">
       <div className="flex items-center gap-2 flex-wrap">
+        <span
+          className={`text-xs px-2 py-0.5 rounded-full border ${
+            allTransferred
+              ? "bg-green-900/40 text-green-200 border-green-700/60"
+              : "bg-zinc-800 text-gray-300 border-zinc-600"
+          }`}
+          title="Dropbox transfer progress for this batch"
+        >
+          {doneCount}/{total} transferred
+        </span>
+        {pendingCount > 0 && (
+          <button
+            onClick={() => setShowPending((v) => !v)}
+            className="text-xs text-blue-300 hover:text-blue-200 underline"
+          >
+            {showPending ? "Hide pending" : `Show pending (${pendingCount})`}
+          </button>
+        )}
         {transferMsg && (
           <span className="text-xs text-gray-300 bg-zinc-800 border border-zinc-600 rounded-md px-2 py-0.5">
             {transferMsg}
@@ -449,13 +483,13 @@ function BatchActions({ batch }: { batch: Batch }) {
         )}
         <button
           onClick={transferBatch}
-          disabled={transferring || pendingTransfers === 0}
+          disabled={transferring || allTransferred || readyCount === 0}
           title={
-            pendingTransfers === 0
-              ? allTransferred
-                ? "All ads in this batch are already transferred"
-                : "No ads in this batch are ready to transfer (need editor Drive link, Complete status, and ad number)"
-              : `Transfer ${pendingTransfers} ad${pendingTransfers === 1 ? "" : "s"} to Dropbox`
+            allTransferred
+              ? "All ads in this batch are already transferred"
+              : readyCount === 0
+              ? `Nothing ready to transfer right now — ${pendingCount} ad${pendingCount === 1 ? "" : "s"} waiting on editor / stuck in progress. Click "Show pending" to see details.`
+              : `Transfer ${readyCount} ad${readyCount === 1 ? "" : "s"} to Dropbox`
           }
           className="text-xs font-medium bg-bloom-dark text-white px-3 py-1 rounded-md hover:bg-bloom transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
@@ -463,7 +497,7 @@ function BatchActions({ batch }: { batch: Batch }) {
             ? "Transferring..."
             : allTransferred
             ? "Transferred to Dropbox ✓"
-            : `Transfer Batch to Dropbox${pendingTransfers > 0 ? ` (${pendingTransfers})` : ""}`}
+            : `Transfer Batch to Dropbox${readyCount > 0 ? ` (${readyCount})` : ""}`}
         </button>
         <button
           onClick={launchBatch}
@@ -474,6 +508,38 @@ function BatchActions({ batch }: { batch: Batch }) {
           {launching ? "Launching..." : allLaunched ? "Batch Launched ✓" : "Mark Batch as Launched"}
         </button>
       </div>
+      {showPending && pendingCount > 0 && (
+        <div className="w-full max-w-2xl bg-zinc-950 border border-zinc-700 rounded-md px-3 py-2 mt-1">
+          <p className="text-xs text-gray-300 font-semibold mb-1">
+            Not yet transferred ({pendingCount}):
+          </p>
+          <ul className="text-xs text-gray-200 space-y-0.5 font-mono">
+            {pendingCreatives.map((c) => (
+              <li key={c.id}>
+                <span className="text-gray-400">{c.adNumber ?? c.concept?.slice(0, 30) ?? c.id.slice(0, 6)}:</span>{" "}
+                <span className="text-amber-200">{pendingReason(c)}</span>
+                {c.transferStatus === "IN_PROGRESS" && (
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Reset stuck transfer for ${c.adNumber ?? "this ad"}? It will be retryable on the next batch transfer.`)) return
+                      const res = await fetch(`/api/creatives/${c.id}/reset-transfer`, { method: "POST" })
+                      if (!res.ok) {
+                        const json = await res.json().catch(() => ({}))
+                        alert(json.error ?? "Reset failed")
+                        return
+                      }
+                      router.refresh()
+                    }}
+                    className="ml-2 text-blue-300 hover:text-blue-200 underline"
+                  >
+                    Reset
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {showDetails && failedResults.length > 0 && (
         <div className="w-full max-w-2xl bg-zinc-950 border border-red-900/60 rounded-md px-3 py-2 mt-1">
           <p className="text-xs text-red-300 font-semibold mb-1">Failures:</p>
