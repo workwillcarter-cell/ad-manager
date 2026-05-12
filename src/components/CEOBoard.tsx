@@ -372,7 +372,7 @@ function pendingReason(c: Creative): string {
   if (c.transferStatus === "FAILED") return c.transferError ? `Failed: ${c.transferError}` : "Failed (no error recorded)"
   if (!c.adNumber) return "No ad number assigned yet"
   if (!c.editorDriveLink) return "Editor hasn't shared a Drive link"
-  if (c.editorStatus !== "COMPLETE") return "Editor hasn't marked Complete"
+  if (c.editorStatus !== "COMPLETE" && c.editorStatus !== "PAID") return "Editor hasn't marked Complete"
   return "Ready to transfer (never attempted)"
 }
 
@@ -389,7 +389,7 @@ function BatchActions({ batch }: { batch: Batch }) {
   const doneCreatives = batch.creatives.filter((c) => c.transferStatus === "DONE")
   const pendingCreatives = batch.creatives.filter((c) => c.transferStatus !== "DONE")
   const readyToTransfer = pendingCreatives.filter(
-    (c) => c.editorStatus === "COMPLETE" && c.editorDriveLink && c.adNumber && c.transferStatus !== "IN_PROGRESS",
+    (c) => (c.editorStatus === "COMPLETE" || c.editorStatus === "PAID") && c.editorDriveLink && c.adNumber && c.transferStatus !== "IN_PROGRESS",
   )
   const readyCount = readyToTransfer.length
   const doneCount = doneCreatives.length

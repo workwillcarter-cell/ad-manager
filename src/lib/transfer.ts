@@ -18,7 +18,7 @@ export async function runTransfer(creativeId: string) {
   if (!creative) throw new Error("Creative not found")
   if (!creative.adNumber) throw new Error("No ad number assigned yet")
   if (!creative.editorDriveLink) throw new Error("No editor Drive link on this ad")
-  if (creative.editorStatus !== "COMPLETE") throw new Error("Editor hasn't marked this ad Complete")
+  if (creative.editorStatus !== "COMPLETE" && creative.editorStatus !== "PAID") throw new Error("Editor hasn't marked this ad Complete")
 
   const folderId = extractDriveFolderId(creative.editorDriveLink)
   if (!folderId) throw new Error("Couldn't read folder ID from editor's Drive link")

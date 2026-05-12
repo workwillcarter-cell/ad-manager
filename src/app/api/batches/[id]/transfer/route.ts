@@ -44,7 +44,8 @@ export async function POST(
       results.push({ id: creative.id, adNumber: creative.adNumber, status: "skipped", reason: "Transfer already in progress" })
       continue
     }
-    if (!creative.editorDriveLink || creative.editorStatus !== "COMPLETE" || !creative.adNumber) {
+    const editorReady = creative.editorStatus === "COMPLETE" || creative.editorStatus === "PAID"
+    if (!creative.editorDriveLink || !editorReady || !creative.adNumber) {
       results.push({
         id: creative.id,
         adNumber: creative.adNumber,
@@ -53,7 +54,7 @@ export async function POST(
           ? "No ad number assigned yet"
           : !creative.editorDriveLink
           ? "No editor Drive link on this ad"
-          : "Editor hasn't marked this ad Complete",
+          : "Editor hasn't marked this ad Complete or Paid",
       })
       continue
     }

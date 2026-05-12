@@ -594,7 +594,7 @@ function CardModal({ card, userRole, onClose, onUpdate, onMarkComplete }: {
             )}
           </div>
 
-          {isCEO && card.editorStatus === "COMPLETE" && card.adNumber && (
+          {isCEO && (card.editorStatus === "COMPLETE" || card.editorStatus === "PAID") && card.adNumber && (
             <TransferSection card={card} />
           )}
         </div>
