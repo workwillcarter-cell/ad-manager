@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import AddUserButton from "@/components/AddUserButton"
+import DeleteUserButton from "@/components/DeleteUserButton"
 import type { Role } from "@/generated/prisma/client"
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -46,9 +47,14 @@ export default async function TeamPage() {
               <p className="text-sm font-medium text-gray-900">{user.name}</p>
               <p className="text-xs text-gray-400">{user.email}</p>
             </div>
-            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${ROLE_COLORS[user.role]}`}>
-              {ROLE_LABELS[user.role]}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${ROLE_COLORS[user.role]}`}>
+                {ROLE_LABELS[user.role]}
+              </span>
+              {user.id !== session.user.id && (
+                <DeleteUserButton userId={user.id} userName={user.name} />
+              )}
+            </div>
           </div>
         ))}
       </div>

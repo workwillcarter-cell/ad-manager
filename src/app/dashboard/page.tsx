@@ -31,13 +31,26 @@ export default async function DashboardPage() {
       },
     })
 
-    // Within each batch: unlaunched on top, LAUNCHED at the bottom.
-    // Array.sort is stable, so createdAt order is preserved within each group.
+    // Within each batch: unlaunched on top, LAUNCHED at the bottom, and within
+    // each group the newest ad name first (Bloom110 → Bloom101). A completed
+    // batch is all-launched, so it reads as a clean newest-first list. Any
+    // unnamed ad falls to the bottom of its group.
+    const adNum = (n: string | null) => {
+      const m = n?.match(/(\d+)/)
+      return m ? parseInt(m[1], 10) : null
+    }
     const batches = batchesRaw.map((b) => ({
       ...b,
-      creatives: [...b.creatives].sort(
-        (a, z) => (a.ceoStatus === "LAUNCHED" ? 1 : 0) - (z.ceoStatus === "LAUNCHED" ? 1 : 0),
-      ),
+      creatives: [...b.creatives].sort((a, z) => {
+        const launchedDiff = (a.ceoStatus === "LAUNCHED" ? 1 : 0) - (z.ceoStatus === "LAUNCHED" ? 1 : 0)
+        if (launchedDiff !== 0) return launchedDiff
+        const an = adNum(a.adNumber)
+        const zn = adNum(z.adNumber)
+        if (an === null && zn === null) return 0
+        if (an === null) return 1
+        if (zn === null) return -1
+        return zn - an
+      }),
     }))
 
     const unassigned = await prisma.creative.findMany({
