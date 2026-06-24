@@ -110,13 +110,26 @@ export default function CEOBoard({ batches, unassigned }: { batches: Batch[]; un
   const [addingConcept, setAddingConcept] = useState(false)
   const [newConcept, setNewConcept] = useState("")
   const [saving, setSaving] = useState(false)
+  const [query, setQuery] = useState("")
   const addInputRef = useRef<HTMLInputElement>(null)
 
+  // Search filter — matches across the concept's text fields
+  const q = query.trim().toLowerCase()
+  const matches = (c: Creative) =>
+    !q ||
+    [c.concept, c.extraInfo, c.learnings, c.adNumber, c.projectType, c.style, c.result]
+      .some((v) => v != null && String(v).toLowerCase().includes(q))
+
   // Planning rows: sorted by ceoStatus (no-status → BRIEF_COMPLETE → MOVED_TO_AIG → MOVED_TO_EDITOR), then projectType
-  const planning = sortPlanning(unassigned)
+  const planning = sortPlanning(unassigned).filter(matches)
+
+  // Batches with their creatives filtered by search; empty batches drop out only while searching
+  const filteredBatches = q
+    ? batches.map((b) => ({ ...b, creatives: b.creatives.filter(matches) })).filter((b) => b.creatives.length > 0)
+    : batches
 
   // Flat ordered list of all rows (planning first, then batches newest→oldest)
-  const allRows = [...planning, ...batches.flatMap((b) => b.creatives)]
+  const allRows = [...planning, ...filteredBatches.flatMap((b) => b.creatives)]
 
   function navigate(rowIndex: number, colIndex: number, dir: NavDir) {
     let r = rowIndex
@@ -171,13 +184,33 @@ export default function CEOBoard({ batches, unassigned }: { batches: Batch[]; un
 
   return (
     <div className="w-full">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">CEO Board</h1>
           <p className="text-sm text-bloom-soft/80 mt-0.5">Creative concept tracking</p>
         </div>
-        <div className="text-sm text-bloom-soft/70">
-          {totalConcepts} concepts · {batches.length} batches
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search concepts..."
+              className="text-sm text-gray-100 placeholder-zinc-500 bg-zinc-900 border border-zinc-600 rounded-lg pl-3 pr-8 py-1.5 w-64 focus:outline-none focus:ring-2 focus:ring-bloom"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-gray-200 text-base leading-none"
+                title="Clear search"
+              >
+                ×
+              </button>
+            )}
+          </div>
+          <div className="text-sm text-bloom-soft/70 whitespace-nowrap">
+            {totalConcepts} concept{totalConcepts !== 1 ? "s" : ""} · {filteredBatches.length} batch{filteredBatches.length !== 1 ? "es" : ""}
+          </div>
         </div>
       </div>
 
@@ -210,7 +243,7 @@ export default function CEOBoard({ batches, unassigned }: { batches: Batch[]; un
                 </span>
               </td>
             </tr>
-            <tr>
+            {!q && <tr>
               <td colSpan={COL_SPAN} className="px-3 py-2 border-b border-zinc-700">
                 {addingConcept ? (
                   <div className="flex items-center gap-2">
@@ -242,7 +275,7 @@ export default function CEOBoard({ batches, unassigned }: { batches: Batch[]; un
                   </button>
                 )}
               </td>
-            </tr>
+            </tr>}
             {planning.map((creative, i) => (
               <CreativeRow
                 key={creative.id}
@@ -256,9 +289,9 @@ export default function CEOBoard({ batches, unassigned }: { batches: Batch[]; un
             ))}
 
             {/* Batched ads — newest first */}
-            {batches.map((batch) => {
-              const batchStartRow = planning.length + batches
-                .slice(0, batches.indexOf(batch))
+            {filteredBatches.map((batch) => {
+              const batchStartRow = planning.length + filteredBatches
+                .slice(0, filteredBatches.indexOf(batch))
                 .reduce((n, b) => n + b.creatives.length, 0)
               return (
                 <Fragment key={batch.id}>
@@ -288,6 +321,14 @@ export default function CEOBoard({ batches, unassigned }: { batches: Batch[]; un
                 </Fragment>
               )
             })}
+
+            {q && allRows.length === 0 && (
+              <tr>
+                <td colSpan={COL_SPAN} className="px-4 py-8 text-center text-sm text-gray-500">
+                  No concepts match “{query}”.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

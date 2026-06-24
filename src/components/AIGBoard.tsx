@@ -26,7 +26,7 @@ type Card = {
 // Default AIG payment per projectType. UGC, Clip Refresh, No Gen don't normally
 // reach the AIG board; if they do, fall back to 0 until the CEO sets a value.
 const AIG_DEFAULTS: Record<string, number> = {
-  "Script Shotlist": 6,
+  "Script Shotlist": 9,
   "Image":           6,
   "Cartoon":        18,
   "Perfect UGC":    18,
