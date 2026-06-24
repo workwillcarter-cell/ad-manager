@@ -43,6 +43,8 @@ model User {
   batches   Batch[]
   creatives Creative[]
   history   StageHistory[]
+  nativeAds      NativeAd[]
+  nativeBatches  NativeBatch[]
 }
 
 model Batch {
@@ -108,6 +110,46 @@ model Creative {
   updatedAt DateTime @updatedAt
 
   history StageHistory[]
+}
+
+// ── Native Ads board ────────────────────────────────────────────────────────
+// Fully self-contained: native ads never touch the AIG/Editor boards or Dropbox.
+// Ready ads sit un-batched (unlimited); marking one Launched groups it with the
+// other ads launched that same day into a NativeBatch.
+
+model NativeBatch {
+  id          String   @id @default(cuid())
+  name        String
+  number      Int?
+  launchDate  DateTime // the calendar day (UTC midnight) these launched ads are grouped under
+  createdAt   DateTime @default(now())
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+
+  ads NativeAd[]
+}
+
+model NativeAd {
+  id         String    @id @default(cuid())
+  concept    String
+  briefLink  String?   // doubles as the finished-ad link (no separate Dropbox transfer)
+  adNumber   String?   // native3, native4, ...
+  status     String?   // SCRIPT_COMPLETE | IMAGE_COMPLETE | READY | LAUNCHED
+  style      String?
+  extraInfo  String?
+  learnings  String?
+  launchDate DateTime?
+  result     Result?
+  spend      Float?
+  roas       Float?
+
+  batchId     String?
+  batch       NativeBatch? @relation(fields: [batchId], references: [id])
+  createdById String
+  createdBy   User         @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model StageHistory {
