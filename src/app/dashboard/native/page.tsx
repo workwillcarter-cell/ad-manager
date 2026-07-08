@@ -15,10 +15,11 @@ export default async function NativeAdsPage() {
   if (!session) redirect("/login")
   if (session.user.role !== "CEO") redirect("/dashboard")
 
-  // Planning: un-batched ads that aren't Ready yet (status null / Script / Image)
+  // Planning: un-batched ads that aren't Ready yet (status null / Script / Image).
+  // Newest first so freshly-added concepts land at the top of the list.
   const planning = await prisma.nativeAd.findMany({
     where: { batchId: null, OR: [{ status: null }, { status: { notIn: ["READY", "LAUNCHED"] } }] },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
     select: AD_SELECT,
   })
 
