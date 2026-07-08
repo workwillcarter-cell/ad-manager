@@ -355,7 +355,7 @@ function NativeRow({
         <EditableCell cellId={`${rowIndex}-0`} value={ad.concept} onSave={(v) => onUpdate(ad.id, "concept", v)} multiline onNav={nav(0)} className="font-medium text-gray-100 min-w-[180px]" />
       </td>
       <td className="px-2 py-1">
-        <BriefCell cellId={`${rowIndex}-1`} value={ad.briefLink} onSave={(v) => onUpdate(ad.id, "briefLink", v)} onNav={nav(1)} />
+        <BriefCell cellId={`${rowIndex}-1`} value={ad.briefLink} concept={ad.concept} nativeAdId={ad.id} onSave={(v) => onUpdate(ad.id, "briefLink", v)} onNav={nav(1)} />
       </td>
       <td className="px-1 py-1">
         <StyleCell cellId={`${rowIndex}-2`} value={ad.style} onSave={(v) => onUpdate(ad.id, "style", v)} onNav={nav(2)} />
@@ -636,14 +636,45 @@ function AdNumberCell({ value, driveLink, onSave, cellId, onNav }: {
 }
 
 // The brief link IS the finished-ad link on this board.
-function BriefCell({ value, onSave, cellId, onNav }: { value: string | null; onSave: (v: string | null) => void; cellId: string; onNav: (d: NavDir) => void }) {
+// Like the CEO board, an empty cell offers a one-click "create Drive folder"
+// (named after the concept) as well as a paste-a-link option.
+function BriefCell({ value, concept, nativeAdId, onSave, cellId, onNav }: {
+  value: string | null
+  concept: string
+  nativeAdId: string
+  onSave: (v: string | null) => void
+  cellId: string
+  onNav: (d: NavDir) => void
+}) {
+  const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? "")
+  const [creating, setCreating] = useState(false)
 
   function commit() {
     setEditing(false)
     const trimmed = draft.trim()
     if (trimmed !== (value ?? "")) onSave(trimmed || null)
+  }
+
+  async function createFolder() {
+    if (creating) return
+    if (!concept.trim()) {
+      alert("Add a concept name first, then click again to create the brief folder.")
+      return
+    }
+    setCreating(true)
+    try {
+      const res = await fetch(`/api/native-ads/${nativeAdId}/create-brief-folder`, { method: "POST" })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(json.error ?? `Failed to create folder (${res.status})`)
+        return
+      }
+      router.refresh()
+    } finally {
+      setCreating(false)
+    }
   }
 
   if (editing) {
@@ -672,9 +703,24 @@ function BriefCell({ value, onSave, cellId, onNav }: { value: string | null; onS
   }
 
   return (
-    <button data-cell={cellId} onClick={() => setEditing(true)} className="text-xs text-gray-500 italic hover:text-bloom-leaf px-2 py-1 rounded-lg hover:bg-zinc-700/60 transition-all min-h-[28px]">
-      + link
-    </button>
+    <div className="flex items-center gap-1">
+      <button
+        data-cell={cellId}
+        onClick={createFolder}
+        disabled={creating}
+        title="Create a Drive folder named after this concept"
+        className="text-xs text-gray-400 italic hover:text-bloom-leaf px-2 py-1 rounded-lg hover:bg-zinc-700/60 transition-all min-h-[28px] disabled:opacity-50"
+      >
+        {creating ? "Creating…" : "📁 + folder"}
+      </button>
+      <button
+        onClick={() => setEditing(true)}
+        title="Paste a link instead"
+        className="text-gray-500 hover:text-gray-200 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+      >
+        ✎
+      </button>
+    </div>
   )
 }
 

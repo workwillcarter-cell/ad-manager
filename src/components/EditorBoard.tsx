@@ -112,7 +112,7 @@ export default function EditorBoard({ cards: initialCards, userRole }: { cards: 
 
   const isCEO = userRole === "CEO"
   const unpaidCards = cards.filter(
-    (c) => (c.editorStatus === "COMPLETE" || c.editorStatus === "PAID") && !c.editorPaid,
+    (c) => (c.editorStatus === "REVISION" || c.editorStatus === "COMPLETE" || c.editorStatus === "PAID") && !c.editorPaid,
   )
   const unpaidTotal = unpaidCards.reduce((sum, c) => sum + editorAmountFor(c), 0)
   const [markingAllPaid, setMarkingAllPaid] = useState(false)
@@ -268,7 +268,7 @@ function EditorCard({ card, userRole, isDragging, onClick, onDragStart, onDragEn
   const openRevisions = revisions.filter((r) => !r.complete)
 
   const showPaidPill = userRole === "CEO"
-    && (card.editorStatus === "COMPLETE" || card.editorStatus === "PAID")
+    && (card.editorStatus === "REVISION" || card.editorStatus === "COMPLETE" || card.editorStatus === "PAID")
   const editorAmount = editorAmountFor(card)
 
   async function togglePaid(e: React.MouseEvent) {
